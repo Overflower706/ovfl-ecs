@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-04-28
+
+### Changed
+- OVFL.ECS 테스트 프로젝트에 로컬 패키지로 연결
+
 ## [2.0.0] - 2026-04-08
 
 ### Removed (Breaking Changes)
