@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using OVFL.ECS;
 
-namespace Test
+namespace OVFL.ECS.Test
 {
     [TestFixture]
     public class EntityComponentTests

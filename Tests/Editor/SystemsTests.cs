@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Test
+namespace OVFL.ECS.Test
 {
     [TestFixture]
     public class SystemsTests
