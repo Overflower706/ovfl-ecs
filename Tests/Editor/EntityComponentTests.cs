@@ -122,5 +122,29 @@ namespace OVFL.ECS.Test
             Assert.IsFalse(null == e1);
             Assert.IsTrue((Entity)null == null);
         }
+
+        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
+
+        [Test]
+        public void AddComponent_기반_타입_변수로_넘겨도_실제_타입으로_찾힌다()
+        {
+            // 키를 typeof(T)로 잡으면 여기서 IComponent에 박혀
+            // GetComponent<Position>()이 조용히 null을 준다.
+            var entity = new Entity(0, 1);
+            IComponent asBase = new Position { x = 3, y = 4 };
+
+            entity.AddComponent(asBase);
+
+            Assert.IsTrue(entity.HasComponent<Position>());
+            Assert.AreEqual(3, entity.GetComponent<Position>().x);
+        }
+
+        [Test]
+        public void AddComponent_null이면_던진다()
+        {
+            var entity = new Entity(0, 1);
+
+            Assert.Throws<System.ArgumentNullException>(() => entity.AddComponent<Position>(null));
+        }
     }
 }

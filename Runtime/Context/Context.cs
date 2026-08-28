@@ -22,6 +22,19 @@ namespace OVFL.ECS
         private readonly List<int> _generations = new();
         private int _nextEntityID = 0;
 
+        /// <summary>
+        /// <see cref="Systems.Tick"/>이 돈 횟수. 첫 Tick 안에서 읽으면 1입니다.
+        /// </summary>
+        /// <remarks>
+        /// &quot;언제 일어났는가&quot;를 말할 수 있어야 재현이 가능해집니다.
+        /// 프레임 시간(<c>Time.time</c>)과 달리 <b>한 스텝 안에서는 값이 고정</b>이므로,
+        /// 같은 스텝에 생긴 것들을 하나로 묶어 볼 수 있습니다.
+        /// </remarks>
+        public uint Tick { get; internal set; }
+
+        /// <summary><see cref="Systems.FixedTick"/>이 돈 횟수. <see cref="Tick"/>과 별개로 셉니다.</summary>
+        public uint FixedTick { get; internal set; }
+
         public Context()
         {
             Array.Fill(_entityIndices, -1);
@@ -95,6 +108,9 @@ namespace OVFL.ECS
             _pendingDestroy.Clear();
         }
 
+        /// <summary>
+        /// ID로 Entity를 찾습니다. <b><see cref="IsAlive"/>가 false인 것은 돌려주지 않습니다.</b>
+        /// </summary>
         public Entity GetEntity(int id)
         {
             // 0번 ID도 유효하므로 id >= 0 체크
@@ -104,7 +120,11 @@ namespace OVFL.ECS
             if (index == -1) return null;
 
             Entity entity = _entities[index];
-            return (entity.Generation == _generations[id]) ? entity : null;
+            if (entity.Generation != _generations[id]) return null;
+
+            // 삭제 예약된 것은 AllEntities에서도 빠져 있다. 여기만 다르게 답하면
+            // 「쿼리에는 없는데 GetEntity로는 잡히는」 엔티티가 생긴다.
+            return entity.IsActive ? entity : null;
         }
 
         public bool IsAlive(Entity entity)

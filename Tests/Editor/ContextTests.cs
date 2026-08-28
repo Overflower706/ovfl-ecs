@@ -221,5 +221,29 @@ namespace OVFL.ECS.Test
         {
             Assert.DoesNotThrow(() => _context.DestroyAllEntities());
         }
+
+        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
+
+        [Test]
+        public void GetEntity_삭제_예약된_엔티티는_돌려주지_않는다()
+        {
+            // AllEntities에서는 이미 빠져 있는데 GetEntity로는 잡히면,
+            // 「쿼리에는 없는데 ID로는 있는」 엔티티가 생긴다.
+            var entity = _context.CreateEntity();
+            int id = entity.ID;
+            Assert.AreSame(entity, _context.GetEntity(id));
+
+            _context.DestroyEntity(entity);
+
+            Assert.IsNull(_context.GetEntity(id), "FlushDestroyQueue 전에도 이미 없다");
+            Assert.IsFalse(_context.IsAlive(entity));
+        }
+
+        [Test]
+        public void Tick_카운터는_Systems가_돌기_전에는_0이다()
+        {
+            Assert.AreEqual(0u, _context.Tick);
+            Assert.AreEqual(0u, _context.FixedTick);
+        }
     }
 }

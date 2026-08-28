@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-08-29
+
+파괴적 변경 없음. 소비자는 태그만 올리면 된다.
+
+### Added
+- **`Context.Tick` / `Context.FixedTick`** — `Systems.Tick()` / `FixedTick()`이 돈 횟수.
+  시스템이 도는 동안 이미 증가해 있으므로 첫 Tick 안에서 읽으면 1이다.
+  `Time.time`과 달리 한 스텝 안에서 값이 고정이라, 같은 스텝에 생긴 것들을 묶어 볼 수 있다.
+- **`Systems.RethrowOnSystemException`** — 시스템이 던진 예외를 호출자에게 다시 던질지.
+  **에디터 기본값 `true`**, 빌드 기본값 `false`.
+  삼키면 게임은 버티지만 죽은 시스템이 갱신하지 못한 값을 뒤 시스템이 읽어
+  **증상이 원인에서 멀어진다.** 개발 중에는 첫 예외에서 멈추는 편이 낫다.
+
+### Fixed
+- **`Entity.AddComponent`가 정적 타입으로 키를 잡던 문제** — `component.GetType()`으로 바꿨다.
+  `IComponent c = new Foo(); e.AddComponent(c);`처럼 기반 타입 변수로 넘기면
+  키가 `IComponent`에 박혀 `GetComponent<Foo>()`가 **경고도 없이 null을 주던** 상태였다.
+  기반 타입 키로 저장하는 것에 의존하던 코드가 있다면 동작이 바뀐다.
+- **`Systems.AddSystem`이 `virtual`이 아니던 문제** — `AddSystem(ISystem)` / `AddSystem<T>()` /
+  `RemoveSystem` / `RemoveAllSystems`를 `virtual`로 바꿨다.
+  파생 클래스가 `new`로 숨기면 **제네릭으로 넣은 시스템만 파생 목록을 건너뛰는** 어긋남이 있었다.
+- **`Context.GetEntity`가 삭제 예약된 엔티티를 돌려주던 문제** — `IsActive`가 false면 null을 준다.
+  `AllEntities`에서는 이미 빠져 있는데 ID로는 잡혀서, 둘의 답이 갈렸다.
+- **예외를 다시 던질 때 뒤처리를 건너뛰던 문제** — `Cleanup` / `FixedCleanup` / `Teardown`의
+  마무리(`FlushDestroyQueue`, `RemoveAllSystems`)를 `finally`로 옮겼다.
+- **`Entity.AddComponent(null)`이 조용히 통과하던 문제** — `ArgumentNullException`을 던진다.
+
 ## [2.0.2] - 2026-04-28
 
 ### Changed

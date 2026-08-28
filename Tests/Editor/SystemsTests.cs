@@ -10,6 +10,21 @@ namespace OVFL.ECS.Test
     [TestFixture]
     public class SystemsTests
     {
+        private bool _savedRethrow;
+
+        // 이 픽스처의 기존 테스트들은 「예외를 삼키고 다음 시스템을 계속 돌린다」를
+        // 검증한다. 에디터 기본값이 재던지기이므로 여기서 눌러 둔다.
+        // 재던지기 쪽은 아래 RethrowOnSystemException_* 테스트가 따로 켜서 본다.
+        [SetUp]
+        public void SetUp()
+        {
+            _savedRethrow = Systems.RethrowOnSystemException;
+            Systems.RethrowOnSystemException = false;
+        }
+
+        [TearDown]
+        public void TearDown() => Systems.RethrowOnSystemException = _savedRethrow;
+
         // 모의 시스템 (Mock System)
         class MockSystem : ISetupSystem, ITickSystem
         {
@@ -330,6 +345,116 @@ namespace OVFL.ECS.Test
             // Teardown 이후 시스템이 해제됐는지 확인
             systems.Tick();
             Assert.AreEqual(0, mockSys.TickCount);
+        }
+
+        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
+
+        /// <summary>AddSystem을 재정의해 가로채는 파생 클래스. 가상 호출을 재는 탐침이다.</summary>
+        class CountingSystems : Systems
+        {
+            public int AddCalls;
+            public CountingSystems(Context context) : base(context) { }
+
+            public override Systems AddSystem(ISystem system)
+            {
+                AddCalls++;
+                return base.AddSystem(system);
+            }
+        }
+
+        [Test]
+        public void AddSystem_파생_클래스의_재정의를_탄다()
+        {
+            var systems = new CountingSystems(new Context());
+
+            systems.AddSystem(new MockTeardownSystem());
+
+            Assert.AreEqual(1, systems.AddCalls);
+        }
+
+        [Test]
+        public void AddSystem_제네릭_오버로드도_같은_재정의를_탄다()
+        {
+            // 두 오버로드 중 하나만 가상이면 제네릭으로 넣은 시스템만
+            // 파생 클래스를 건너뛴다. 그 어긋남을 막는 테스트다.
+            var systems = new CountingSystems(new Context());
+
+            systems.AddSystem<MockTeardownSystem>();
+
+            Assert.AreEqual(1, systems.AddCalls);
+        }
+
+        [Test]
+        public void RethrowOnSystemException_켜면_호출자까지_올라온다()
+        {
+            var systems = new Systems(new Context());
+            var log = new List<string>();
+            systems.AddSystem(new ThrowingTickSystem());
+            systems.AddSystem(new MockSystem(log));
+
+            Systems.RethrowOnSystemException = true;
+
+            Assert.Throws<Exception>(() => systems.Tick());
+            Assert.AreEqual(0, log.Count, "예외 뒤의 시스템은 돌지 않는다");
+        }
+
+        [Test]
+        public void RethrowOnSystemException_켜도_Teardown은_시스템을_비운다()
+        {
+            // 재던지기가 뒤처리를 건너뛰면, 이미 정리된 리소스를 붙든 시스템이
+            // 다음 Setup에서 되살아난다.
+            var systems = new Systems(new Context());
+            var log = new List<string>();
+            var mockSys = new MockSystem(log);
+            systems.AddSystem(new ThrowingTeardownSystem());
+            systems.AddSystem(mockSys);
+
+            Systems.RethrowOnSystemException = true;
+
+            Assert.Throws<Exception>(() => systems.Teardown());
+
+            systems.Tick();
+            Assert.AreEqual(0, mockSys.TickCount, "예외가 나도 시스템 목록은 비워진다");
+        }
+
+        [Test]
+        public void Tick과_FixedTick은_Context의_카운터를_따로_센다()
+        {
+            var context = new Context();
+            var systems = new Systems(context);
+
+            Assert.AreEqual(0u, context.Tick, "시작은 0");
+            Assert.AreEqual(0u, context.FixedTick);
+
+            systems.Tick();
+            systems.Tick();
+            systems.FixedTick();
+
+            Assert.AreEqual(2u, context.Tick);
+            Assert.AreEqual(1u, context.FixedTick);
+        }
+
+        [Test]
+        public void Tick_카운터는_시스템이_도는_동안_이미_올라가_있다()
+        {
+            // 첫 Tick 안에서 읽으면 1이다. 0이면 「몇 번째 스텝인가」를
+            // 시스템이 말할 수 없다.
+            var context = new Context();
+            var systems = new Systems(context);
+            uint seen = uint.MaxValue;
+            systems.AddSystem(new TickCounterProbe(v => seen = v));
+
+            systems.Tick();
+
+            Assert.AreEqual(1u, seen);
+        }
+
+        class TickCounterProbe : ITickSystem
+        {
+            public Context Context { get; set; }
+            private readonly Action<uint> _sink;
+            public TickCounterProbe(Action<uint> sink) => _sink = sink;
+            public void Tick() => _sink(Context.Tick);
         }
     }
 }
