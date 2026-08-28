@@ -1,288 +1,328 @@
-# OVFL ECS (OVFL Entity Component System)
+# OVFL ECS
 
-ECS의 장점은 여러 가지가 있습니다.<br>
-메모리 최적화로 캐싱에 유리하기도 하고 데이터와 기능이 분리돼 있어 유지보수에도 이점이 있죠.<br>
-다만 메모리 최적화를 위한 구현 과정에서 학습 곡선이 급격히 오른다는 문제가 있다고 생각합니다.<br>
-아직 ECS에 익숙하지 않은, 아직은 객체 지향 개발에 익숙한 개발자분이 ECS에 점차 익숙해질 수 있도록 지원하고자 학습용 패키지를 만들었습니다.
+Unity용 ECS. **성능이 아니라 구조를 위한 것**입니다.
 
-## 🎯 프로젝트 목표
+메모리 최적화(Burst, NativeArray, Job System)는 추구하지 않습니다. 대신
+데이터와 기능의 분리, 실행 순서의 명시, 생명주기 관리 같은 **관리 기능**은 챙깁니다.
+`Entity`가 class이고 `IComponent`에 struct 강제가 없는 것은 그 선택의 결과입니다 —
+「Context가 Entity 배열을 갖고 System이 그것을 순회한다」가 코드에 그대로 보이는 편이,
+빠른 편보다 낫다고 봤습니다.
 
-- Context가 Entity 배열을 갖고 있고, System이 해당 배열을 순회하면서 Component를 처리해나간다는 것이 선명하게 드러날 것
-- Entity는 ID 값만을 갖고 있고 여러 Component를 담는 그릇임이 코드상에서 나타날 것
-- 그 결과, 데이터와 기능의 분리가 어떻게 동작되는지 이해하는데에 도움이 됐으면 합니다.
-
-## 📦 설치 방법
-
-### Unity Package Manager로 설치
-
-#### 방법 1: Package Manager 사용
-1. Unity에서 **Window > Package Manager** 열기
-2. 좌상단 **+** 버튼 클릭
-3. **Add package from git URL...** 선택
-4. 다음 URL 입력:
-   ```
-   https://github.com/Overflower706/ecs.git
-   ```
-
-#### 방법 2: manifest.json 직접 편집
-1. 프로젝트의 `Packages/manifest.json` 파일 열기
-2. dependencies 섹션에 추가:
-   ```json
-   {
-     "dependencies": {
-       "com.ovfl.ecs": "https://github.com/Overflower706/ecs.git"
-     }
-   }
-   ```
-
-#### 방법 3: 특정 버전 설치
-git 주소 끝에 해당 버전을 입력하면 됩니다.
-```json
-{
-  "dependencies": {
-    "com.ovfl.ecs": "https://github.com/Overflower706/ecs.git#v1.5.4"
-  }
-}
-```
-
-## 🏗️ 아키텍처
-
-### 핵심 구성 요소
-
-#### 1. **Entity (엔티티)**
-```csharp
-public class Entity
-{
-    public readonly int ID;
-    public readonly int Generation;
-    public bool IsActive { get; internal set; }
-    private readonly Dictionary<Type, IComponent> _components;
-}
-
-var entity = context.CreateEntity();
-entity.AddComponent(new PositionComponent { X = 10, Y = 20 });
-entity.AddComponent(new VelocityComponent { VX = 1, VY = 0 });
-```
-
-- 고유 ID를 가진 객체
-- 컴포넌트들을 담는 컨테이너 역할
-- ID는 재사용되며, 이로 인한 오인을 방지하기 위해 Generation과 IsActive가 존재합니다.<br>
-ex 1. ID 1을 갖고 있다가 해당 Entity가 삭제됐다면, IsActive를 통해 삭제됐음을 알 수 있음.<br>
-ex 2. ID 1을 갖고 있다가 해당 Entity가 삭제되고 새로운 Entity가 생성되면서 ID 1을 할당 받음. 하지만 Generation은 1과 2로 다르기 때문에 둘을 구분할 수 있음.<br>
-<br>
-※ ECS에서는 Entity를 struct로 하는게 맞습니다만, Entity는 Component를 담고 있는 그릇임을 강조하기 위해 class로 구현하였습니다.
-
-#### 2. **Component (컴포넌트)**
-```csharp
-public class PositionComponent : IComponent
-{
-    public float X { get; set; }
-    public float Y { get; set; }
-}
-```
-
-- `IComponent` 인터페이스 구현
-- 순수한 데이터 구조
-- 로직을 포함하지 않습니다.<br>
-<br>
-※ 마찬가지로 ECS에서는 Component를 struct로 고정하는게 맞습니다.(메모리상 이점을 얻기 위함) 다만 이 프로젝트는 메모리상 이점보단 데이터와 기능 분리를 통한 유지보수에 초점을 맞추고자 더 넓은 폭으로 지원하고자 class로도 사용할 수 있습니다. 익숙해졌다면 이제 실제로 사용하는 Sparse Set ECS 구현체나 Archetype ECS(Unity DOTS가 대표적이죠)로 넘어갑시다.
-
-#### 3. **System (시스템)**
-```csharp
-public class MovementSystem : ITickSystem
-{
-    public Context Context { get; set; }
-
-    public void Tick()
-    {
-        foreach (var entity in Context.AllEntities)
-        {
-            var position = entity.GetComponent<PositionComponent>();
-            var velocity = entity.GetComponent<VelocityComponent>();
-            
-            if (position != null && velocity != null)
-            {
-                position.X += velocity.VX;
-                position.Y += velocity.VY;
-            }
-        }
-    }
-}
-```
-
-- 엔티티와 컴포넌트를 처리하는 로직
-- 5가지 라이프사이클 지원:
-  - `ISetupSystem`: 초기화 시 한 번 실행
-  - `ITickSystem`: 매 프레임 실행
-  - `ICleanupSystem`: Tick 이후 정리 작업
-  - `IFixedTickSystem`: 일정 주기(Unity의 FixedUpdate)마다 실행
-  - `ITeardownSystem`: 마무리 시 한 번 실행
-
-#### 4. **Context (컨텍스트)**
-```csharp
-var context = new Context();
-var entity = context.CreateEntity();
-context.DestroyEntity(entity);
-
-// 모든 엔티티 순회
-foreach (var e in context.AllEntities) { ... }
-```
-
-- 엔티티들을 관리하는 월드
-- 엔티티 생성/파괴 담당
-- 시스템들이 접근하는 엔티티 컬렉션 제공
-
-#### 5. **Systems (시스템 관리자)**
-```csharp
-var systems = new Systems(context)
-    .AddSystem(new MovementSystem())
-    .AddSystem(new RenderSystem());
-
-systems.Setup();    // 초기화
-systems.Tick();     // 매 프레임
-systems.Cleanup();  // 정리
-systems.Teardown(); // 마무리 (자동으로 RemoveAllSystems 호출)
-```
-
-- System을 일괄적으로 관리하기 위한 클래스입니다.
-
-## 🚀 사용 예제
-
-### 기본 사용법
-
-```csharp
-using OVFL.ECS;
-
-// 1. 컴포넌트 정의
-public class PositionComponent : IComponent
-{
-    public float X { get; set; }
-    public float Y { get; set; }
-}
-
-public class VelocityComponent : IComponent
-{
-    public float VX { get; set; }
-    public float VY { get; set; }
-}
-
-// 2. 시스템 정의
-public class MovementSystem : ITickSystem
-{
-    public Context Context { get; set; }
-
-    public void Tick()
-    {
-        // 일반적인 ECS에서는 이를 쉽게 할 수 있도록 쿼리(Query)를 지원합니다.
-        // 다만 그것이 'Context 내 배열로 존재하는 Entity를 순회하며 처리'라는 구조를 가린다고 생각해서 이를 유지합니다.
-        foreach (var entity in Context.AllEntities)
-        {
-            var position = entity.GetComponent<PositionComponent>();
-            var velocity = entity.GetComponent<VelocityComponent>();
-            
-            if (position != null && velocity != null)
-            {
-                position.X += velocity.VX;
-                position.Y += velocity.VY;
-            }
-        }
-    }
-}
-
-// 3. ECS 설정 및 실행
-public class GameECSRunner : MonoBehaviour
-{
-    private Context _context;
-    private Systems _systems;
-    
-    void Start()
-    {
-        // 컨텍스트와 시스템 초기화
-        _context = new Context();
-        _systems = new Systems(_context);
-
-        _systems.AddSystem(new MovementSystem());
-        
-        // 엔티티 생성
-        var player = _context.CreateEntity();
-        player.AddComponent(new PositionComponent { X = 0, Y = 0 });
-        player.AddComponent(new VelocityComponent { VX = 1, VY = 0 });
-        
-        // 시스템 초기화
-        _systems.Setup();
-    }
-    
-    void Update()
-    {
-        // 매 프레임 실행
-        _systems.Tick();
-        _systems.Cleanup();
-    }
-
-    void FixedUpdate()
-    {
-        _systems.FixedTick();
-    }
-    
-    void OnDestroy()
-    {
-        // 정리
-        _systems.Teardown();
-    }
-}
-```
-
-## 🧪 테스트
-
-현재 프로젝트는 기능이 원활히 동작하는 상태를 유지하기 위해 테스트 코드를 포함하고 있습니다.<br>
-Unity Test Runner 프레임워크를 사용합니다.
-
-### 테스트 실행
-1. Unity Editor에서 **Window > General > Test Runner** 열기
-2. **EditMode** 탭 선택
-3. **Run All** 또는 개별 테스트 실행
-
-### 테스트 구조
-```
-Tests/Editor/
-├── EntityComponentTests.cs  # 엔티티 및 컴포넌트 기능 테스트
-├── ContextTests.cs          # 컨텍스트 기능 테스트
-├── SystemsTests.cs          # 시스템 관리 테스트
-└── IntegrationTest.cs       # 통합 테스트
-```
-
-## 📁 프로젝트 구조
-
-```
-Runtime/
-├── Component/
-│   └── IComponent.cs        # 컴포넌트 인터페이스
-├── Entity/
-│   └── Entity.cs            # 엔티티 클래스
-├── Context/
-│   └── Context.cs           # 컨텍스트 클래스
-└── System/
-    ├── ISystem.cs            # 시스템 인터페이스들
-    └── Systems.cs            # 시스템 관리 클래스
-
-Tests/Editor/
-├── *.cs                     # 테스트 파일들
-```
-
-## 🎮 Unity 통합
-
-### Assembly Definition
-- **OVFL.ECS**: 메인 ECS 라이브러리
-- **Editor**: 테스트 전용 (Edit Mode)
-
-### 사용 요구사항
 - Unity 6000.1 이상
-- .NET Standard 2.1
+- 설치: `Packages/manifest.json`에 아래 한 줄. **버전은 태그로 고정하세요.**
 
-## 📄 라이선스
+```json
+"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.0.0"
+```
 
-MIT 라이센스를 적용합니다.
+> **`3.0.0`부터 `com.ovfl.ecs.extensions`는 이 패키지에 흡수됐습니다.**
+> manifest에 그 줄이 남아 있으면 타입 중복으로 컴파일이 깨집니다. 지우세요.
 
-## 🤝 기여
+---
 
-버그 리포트나 개선 제안은 언제든 환영합니다!
+## 30초 요약
+
+```csharp
+// 1. 데이터
+public class HealthComponent : IComponent { public int Value; }
+
+// 2. 기능
+public class PoisonSystem : ITickSystem
+{
+    public Context Context { get; set; }          // 등록할 때 자동으로 꽂힙니다
+
+    public void Tick()
+    {
+        foreach (var entity in Context.GetEntitiesWith<HealthComponent>())
+            entity.GetComponent<HealthComponent>().Value -= 1;
+    }
+}
+
+// 3. 조립
+var context = new Context();
+var systems = new Systems(context);
+systems.Add(Phase.Simulation, new PoisonSystem());
+
+systems.Setup();   // 한 번
+systems.Tick();    // 매 프레임
+```
+
+---
+
+## 한 스텝에 무슨 일이 일어나나
+
+`Systems.Tick()` 하나가 이렇게 돕니다.
+
+```
+Tick++
+Phase마다:
+    ── 경계 ──  인박스 배출(첫 Phase에서만) · 이벤트 발행 · 생성/삭제 반영
+    그 Phase의 시스템들을 등록 순서로 실행
+마지막:      반영 · 이번 스텝 이벤트 정리 · 반영
+```
+
+**경계가 Phase 앞에 있다**는 것이 이 패키지의 중심 규칙입니다. 그래서:
+
+- 앞 Phase가 만든 엔티티는 **뒤 Phase에서 보입니다.**
+- 같은 Phase 안에서는 **엔티티 집합이 고정**입니다. 돌면서 만들어도 터지지 않습니다.
+- 발행한 이벤트는 **다음 Phase부터** 읽힙니다.
+
+### Phase
+
+| Phase | 무엇을 |
+|---|---|
+| `Inbox` | 밖에서 들어온 변경을 Context에 넣습니다 (RPC·콜백·비동기 완료) |
+| `Input` | 이번 스텝의 입력을 읽어 컴포넌트에 적습니다 |
+| `Simulation` | 게임 규칙. **상태를 바꾸는 것은 여기서** |
+| `Reaction` | 시뮬레이션 결과에 대한 반응. 이벤트를 주로 여기서 읽습니다 |
+| `View` | 화면·사운드에 반영합니다. **여기서 상태를 바꾸지 않습니다** |
+| `Outbox` | 밖으로 내보냅니다. RPC 송신·저장 |
+
+**같은 Phase 안의 순서는 여전히 등록 순서입니다.** Phase가 없애는 것은
+「멀리 떨어진 두 시스템의 순서가 우연히 정해지는 것」이지 순서 자체가 아닙니다.
+한 Phase 안에서 A가 B보다 먼저여야 한다면, 그건 **둘을 다른 Phase로 가르라는 신호**입니다.
+
+---
+
+## Runner — MonoBehaviour와 만나는 자리
+
+ECS는 Unity의 생명주기를 모릅니다. 그 둘을 잇는 MonoBehaviour 하나를 **Runner**라 부릅니다.
+**씬마다 하나**를 두는 것을 권합니다.
+
+```csharp
+public class IngameECSRunner : MonoBehaviour
+{
+    private Context context;
+    private Systems systems;
+
+    private void Awake()
+    {
+        context = new Context();
+        systems = new Systems(context);
+
+        // Inbox — 밖에서 들어온 것을 넣는 시스템
+        systems.Add(Phase.Inbox, new NetworkReceiveSystem());
+
+        // Input
+        systems.Add(Phase.Input, new PlayerInputSystem());
+
+        // Simulation
+        systems.Add(Phase.Simulation, new MovementSystem());
+        systems.Add(Phase.Simulation, new CollisionSystem());
+
+        // Reaction
+        systems.Add(Phase.Reaction, new DamageSystem());
+
+        // View
+        systems.Add(Phase.View, new AnimationSystem());
+    }
+
+    private void Start()      => systems.Setup();
+    private void Update()     { systems.Tick();      systems.Cleanup(); }
+    private void FixedUpdate(){ systems.FixedTick(); systems.FixedCleanup(); }
+    private void OnDestroy()  => systems.Teardown();
+}
+```
+
+**Runner가 하는 일은 조립과 호출뿐입니다.** 게임 로직을 Runner에 적기 시작하면
+그것은 이미 시스템이 아니라 Manager이고, ECS 바깥에 상태가 생깁니다.
+
+### Setup / Tick / Cleanup / Teardown
+
+| 인터페이스 | 언제 | Unity 대응 |
+|---|---|---|
+| `ISetupSystem` | `Setup()` — 한 번 | `Start()` |
+| `ITickSystem` | `Tick()` — 매 프레임, **Phase 순서로** | `Update()` |
+| `ICleanupSystem` | `Cleanup()` — `Tick()` 직후 | `Update()` 끝 |
+| `IFixedTickSystem` | `FixedTick()` — **Phase 순서로** | `FixedUpdate()` |
+| `IFixedCleanupSystem` | `FixedCleanup()` | `FixedUpdate()` 끝 |
+| `ITeardownSystem` | `Teardown()` — 한 번. 끝나면 시스템 목록이 비워집니다 | `OnDestroy()` |
+
+한 클래스가 여러 개를 구현해도 됩니다. `Phase`는 `Tick`/`FixedTick`에만 적용됩니다 —
+나머지는 스텝 전체에 한 번씩 도는 것이라 순서를 나눌 자리가 없습니다.
+
+---
+
+## 네트워크 — `NetworkBehaviour`와 함께 쓸 때
+
+**이 절이 이 패키지에서 제일 중요합니다.** 여기를 틀리면 재현 안 되는 버그가 생깁니다.
+
+### 문제: RPC는 우리가 부르는 것이 아니다
+
+```csharp
+[Rpc(SendTo.ClientsAndHost)]
+void ScoreChangedRpc(int value)
+{
+    context.GetUniqueComponent<ScoreComponent>().Value = value;   // ❌
+}
+```
+
+이게 왜 위험하냐면, **호스트에서는 이 RPC가 그 자리에서 즉시 실행**되기 때문입니다.
+보내는 코드가 `Simulation`의 세 번째 시스템 안이었다면, **그 시점에 Context가 바뀝니다.**
+같은 스텝에서 앞 시스템과 뒤 시스템이 서로 다른 세계를 보게 되고,
+「어느 시스템이 반쯤 돌던 중이었나」에 따라 결과가 달라집니다. 로그를 봐도 알 수 없습니다.
+
+### 답: 인박스에 넣는다
+
+```csharp
+[Rpc(SendTo.ClientsAndHost)]
+void ScoreChangedRpc(int value)
+{
+    context.Enqueue(ctx => ctx.GetUniqueComponent<ScoreComponent>().Value = value);   // ✅
+}
+```
+
+이렇게 하면 그 변경이 **다음 스텝의 `Phase.Inbox` 직전**에, 다른 모든 인박스 항목과 함께,
+정해진 순서로 적용됩니다. `Context.Tick`으로 **몇 번째 스텝에 적용됐는지 말할 수 있고**,
+그래서 재현이 가능해집니다.
+
+> 배출 도중에 새로 들어온 것은 **다음 스텝**으로 넘어갑니다.
+> 매 프레임 도착하는 RPC가 스텝을 영영 끝내지 못하게 만들지 않기 위해서입니다.
+
+### 다리(bridge)는 하나면 됩니다
+
+시스템을 `NetworkBehaviour`로 만들지 마세요. **`NetworkBehaviour`는 통신만 하고,
+게임 로직은 순수 C# 시스템에 둡니다.**
+
+```csharp
+public class EcsNetworkBridge : NetworkBehaviour
+{
+    private Context context;
+    private readonly NetworkVariable<int> score =
+        new(0, writePerm: NetworkVariableWritePermission.Server);
+
+    public void Bind(Context context) => this.context = context;   // StartHost 전에 부릅니다
+
+    public override void OnNetworkSpawn()
+    {
+        score.OnValueChanged += (_, value) => Push(value);
+        Push(score.Value);          // ← 늦게 들어온 클라이언트가 현재 상태를 받는 곳
+    }
+
+    private void Push(int value)
+        => context?.Enqueue(ctx => ctx.GetUniqueComponent<ScoreComponent>().Value = value);
+
+    [Rpc(SendTo.Server)]
+    public void RequestAddScoreRpc(int amount) => score.Value += amount;
+}
+```
+
+**상태는 `NetworkVariable`로, 사건은 RPC로.** 이 구분이 늦게 들어온 클라이언트를 살립니다.
+RPC는 보낼 때 접속해 있던 사람에게만 갑니다 — 그래서 상태를 RPC로 보내면
+**중간에 들어온 사람은 아무것도 모릅니다.** `NetworkVariable`은 접속하는 순간 현재 값을 받습니다.
+
+| | 쓸 것 | 예 |
+|---|---|---|
+| **상태** — 지금 어떠한가 | `NetworkVariable` | 점수, 남은 시간, 준비 여부, 로스터 |
+| **사건** — 방금 무슨 일이 있었나 | RPC | 점프했다, 맞았다, 버튼을 눌렀다 |
+
+### 정리
+
+1. 시스템은 순수 C#. `NetworkBehaviour`는 다리에만.
+2. 밖에서 들어온 것은 **전부** `Context.Enqueue`.
+3. 상태는 `NetworkVariable`, 사건은 RPC.
+4. 다리는 `Bind(context)`를 **접속 시작 전에** 받아야 합니다. `OnNetworkSpawn`이 먼저 올 수 있습니다.
+
+---
+
+## 이벤트
+
+시스템 사이의 단방향 통신입니다. **발행·정리는 `Systems`가 알아서 합니다** —
+등록할 시스템이 없습니다.
+
+```csharp
+public class DamageEvent : EventComponent { public int Amount; }
+
+// 발행 — 어디서든
+Context.RaiseEvent(new DamageEvent { Amount = 10 });
+
+// 수신 — 다음 Phase부터
+Context.ProcessEvents<DamageEvent>((entity, e) => hp.Value -= e.Amount);
+```
+
+- **발행한 Phase에서는 보이지 않습니다.** 다음 Phase 경계에서 발행됩니다.
+  그래서 같은 Phase 안의 등록 순서가 이벤트를 통해서는 결과를 바꾸지 못합니다.
+- **그 스텝 끝에 사라집니다.** 남겨두면 다음 스텝이 지난 이벤트를 또 읽습니다.
+- `FixedTick` 주기는 `RaiseFixedEvent`. 두 레인은 서로의 이벤트를 건드리지 않습니다.
+- 여러 시스템이 같은 이벤트를 읽어도 됩니다.
+
+---
+
+## 쿼리
+
+```csharp
+Context.GetEntitiesWith<T>()                    // 목록 (스냅샷)
+Context.TryGetUniqueEntity<T>(out var entity)   // 정확히 하나일 때 true. 조용합니다
+Context.TryGetUniqueComponent<T>(out var comp)
+Context.GetEntity(id)
+Context.AllEntities                             // 지연 열거
+```
+
+`GetEntitiesWith`는 **부르는 시점의 목록을 떠서** 줍니다. 결과를 돌면서 엔티티를
+만들거나 지워도 안전합니다.
+
+`Try`로 시작하는 것은 **로그를 남기지 않습니다.** 「없을 수도 있다」가 정상인 자리에서
+부르면 매 프레임 로그가 쌓이기 때문입니다. 없는 것이 잘못인지는 부른 쪽이 압니다.
+
+---
+
+## 미뤄지는 것과 안 미뤄지는 것
+
+| | 언제 반영되나 |
+|---|---|
+| 컴포넌트 값 쓰기 | **즉시** |
+| 살아 있는 엔티티에 `AddComponent` / `RemoveComponent` | **즉시** |
+| `CreateEntity` | 다음 Phase 경계 |
+| `DestroyEntity` | 쿼리에서는 **즉시** 사라지고, 저장소 정리는 다음 경계 |
+
+**왜 생성만 미루나.** 즉시 등장시키면 열거 중에 저장소가 바뀌어 그 자리에서 터집니다.
+「열거하면서 만들지 마라」고 적어 두는 대신 **터질 수 없게** 만든 것입니다.
+
+**왜 값 쓰기는 안 미루나.** 미루면 자기가 쓴 값을 자기가 못 읽습니다. 코드가 훨씬 어려워지고,
+그렇게 해서 얻는 것이 없습니다.
+
+만든 엔티티는 **존재는 즉시** 합니다 — 컴포넌트를 붙일 수 있고, `IsAlive`도 true이고,
+`GetEntity(id)`로도 찾힙니다. 미뤄지는 것은 **쿼리에 잡히는 시점**뿐입니다.
+
+---
+
+## 예외 정책
+
+```csharp
+Systems.RethrowOnSystemException   // 에디터 기본 true, 빌드 기본 false
+```
+
+시스템이 던진 예외를 호출자까지 올릴지 정합니다.
+
+삼키면 게임은 버팁니다. 그런데 **죽은 시스템이 갱신하지 못한 값을 뒤 시스템이 읽고
+엉뚱한 곳에서 터지므로, 증상이 원인에서 멀어집니다.** 개발 중에는 첫 예외에서 멈추는 편이
+원인을 찾기 쉽고, 빌드에서는 한 시스템의 실패로 게임 전체가 멈추지 않는 편이 낫습니다.
+
+**빌드에서 삼킨다는 것은 곧 「빌드에서는 시스템이 죽어도 티가 안 난다」는 뜻**이기도 합니다.
+중요한 빌드라면 로그를 확인할 경로를 따로 마련하세요.
+
+---
+
+## 안 하는 것
+
+의도적으로 제공하지 않습니다. 필요해지면 **그건 이 패키지가 아니라 다른 도구를 쓸 때**입니다.
+
+- **아키타입/청크 스토리지, 컴포넌트 struct 강제** — 엔티티 수백 규모에서
+  `Dictionary<Type, IComponent>`로 충분합니다.
+- **멀티스레드/Job** — 이 패키지는 메인 스레드 전용입니다.
+- **네트워크 동기화 자체** — 스냅샷·델타 압축·예측·롤백은 하지 않습니다.
+  `Context.Enqueue`가 「밖에서 온 것을 안전하게 받는 자리」를 줄 뿐, 보내고 받는 것은
+  Netcode for GameObjects 같은 것이 합니다.
+
+---
+
+## 테스트
+
+`Tests/Editor/`에 있습니다. **동작 명세는 이 테스트들이 소유합니다** —
+문서와 코드가 갈리면 여기가 먼저 깨집니다.
+
+Unity Test Runner(EditMode) 또는:
+
+```
+Unity.exe -batchMode -runTests -projectPath <프로젝트> -testPlatform EditMode -testResults results.xml
+```

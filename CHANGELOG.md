@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-08-29
+
+**파괴적 변경이 있다.** 옮기는 법은 아래 「이주」와 `README.md`를 보라.
+
+### Added
+- **`Phase`** — 시스템의 실행 순서를 타입이 갖는다.
+  `Inbox` → `Input` → `Simulation` → `Reaction` → `View` → `Outbox`.
+  이전에는 <b>등록한 줄 순서</b>가 곧 실행 순서라, 한 줄을 옮기면 동작이 바뀌는데
+  컴파일러도 테스트도 몰랐다.
+- **`Systems.Add(Phase, ISystem)` / `Add<T>(Phase)`** — 새 등록 API.
+- **`Context.Enqueue(Action<Context>)`** — 밖에서 들어온 변경을 스텝의 정해진 지점까지 미룬다.
+  **네트워크 RPC를 안전하게 받는 자리다.** `SendTo.ClientsAndHost` RPC는 호스트에서 즉시
+  실행되므로, 그대로 두면 어떤 시스템이 반쯤 돌던 중에 Context가 바뀐다.
+- `Context.InboxCount` / `PendingCount` / `PendingEventCount` — 상태를 들여다보는 창.
+- **`com.ovfl.ecs.extensions`를 흡수했다** — 이벤트와 쿼리가 이 패키지 안으로 들어왔다.
+
+### Changed (Breaking)
+- **`CreateEntity`가 즉시 등장시키지 않는다.** 만든 엔티티는 <b>다음 Phase 경계</b>부터
+  쿼리에 잡힌다. 컴포넌트를 붙이고 값을 읽는 것은 즉시 되고 `IsAlive`도 true다 —
+  미뤄지는 것은 **쿼리에 잡히는 시점**뿐이다.
+  덕분에 `foreach (var e in ctx.AllEntities) ctx.CreateEntity();`가 더 이상 터지지 않는다.
+- **이벤트 발행·정리가 `Systems` 안으로 들어갔다.** `EventPublisherSystem`,
+  `EventCleanupSystem`, `FixedEventPublisherSystem`, `FixedEventCleanupSystem`을 **삭제했다.**
+  등록하지 않는다. 「맨 앞에 등록」·「맨 뒤에 등록」이라는 <b>주석으로만 있던 규약</b>이 사라졌다.
+- **이벤트는 발행한 Phase에서는 보이지 않는다.** 다음 Phase 경계에서 발행된다.
+  같은 Phase 안의 등록 순서가 이벤트를 통해서는 결과를 바꾸지 못하게 하기 위해서다.
+- **`EventMetadataComponent.CreatedTime`(`float`)이 `CreatedTick`(`uint`)으로.**
+  프레임 시간이 아니라 스텝 번호다.
+- 이벤트 큐가 `Context` 안으로 들어왔다. 패키지가 갈려 있던 탓에 쓰던
+  `ConditionalWeakTable` 우회가 사라졌고, **대기 중인 이벤트가 Context에서 보인다.**
+
+### Deprecated
+- `AddSystem(ISystem)` / `AddSystem<T>()` / `RemoveSystem(ISystem)` —
+  경고만 내고 동작한다. `AddSystem`은 `Phase.Simulation`으로 들어간다.
+  **이주용이며 다음 메이저에서 지운다.**
+
+### 이주
+1. `manifest.json`에서 `com.ovfl.ecs.extensions`를 **지운다.**
+   두면 타입 중복으로 컴파일이 깨진다.
+2. `EventPublisherSystem` 계열 네 개의 등록 줄을 **지운다.**
+3. `AddSystem(x)`를 `Add(Phase.___, x)`로 옮긴다. 안 옮겨도 컴파일은 되지만
+   그동안은 전부 `Simulation`에 모여 예전과 같은 「등록 순서」로 돈다.
+4. `CreatedTime`을 쓰던 곳을 `CreatedTick`으로 바꾼다.
+
 ## [2.1.0] - 2026-08-29
 
 파괴적 변경 없음. 소비자는 태그만 올리면 된다.

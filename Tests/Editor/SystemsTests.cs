@@ -124,7 +124,7 @@ namespace OVFL.ECS.Test
             var log = new List<string>();
             var mockSys = new MockSystem(log);
 
-            systems.AddSystem(mockSys); // AddSystem 시점에 주입됨
+            systems.Add(Phase.Simulation, mockSys); // AddSystem 시점에 주입됨
 
             Assert.IsNotNull(mockSys.Context);
             Assert.AreEqual(context, mockSys.Context);
@@ -138,7 +138,7 @@ namespace OVFL.ECS.Test
             var log = new List<string>();
 
             // 시스템 등록
-            systems.AddSystem(new MockSystem(log));
+            systems.Add(Phase.Simulation, new MockSystem(log));
 
             // 실행
             systems.Setup(); // Log: "Setup"
@@ -159,7 +159,7 @@ namespace OVFL.ECS.Test
             var log = new List<string>();
             var mockSys = new MockSystem(log);
 
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, mockSys);
             systems.Tick(); // Tick 1회
 
             systems.RemoveSystem(mockSys);
@@ -175,7 +175,7 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var log = new List<string>();
 
-            systems.AddSystem(new MockSystem(log));
+            systems.Add(Phase.Simulation, new MockSystem(log));
             systems.RemoveAllSystems();
 
             systems.Setup();
@@ -191,7 +191,7 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var mockSys = new MockCleanupSystem();
 
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, mockSys);
             systems.Tick();
             systems.Cleanup();
             systems.Tick();
@@ -208,7 +208,7 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var mockSys = new MockFixedTickSystem();
 
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, mockSys);
             systems.FixedTick();
             systems.FixedTick();
 
@@ -222,8 +222,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var log = new List<string>();
 
-            systems.AddSystem(new ThrowingSetupSystem());
-            systems.AddSystem(new MockSystem(log));
+            systems.Add(Phase.Simulation, new ThrowingSetupSystem());
+            systems.Add(Phase.Simulation, new MockSystem(log));
 
             LogAssert.Expect(LogType.Exception, "Exception: Setup 예외");
             Assert.DoesNotThrow(() => systems.Setup());
@@ -238,8 +238,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var log = new List<string>();
 
-            systems.AddSystem(new ThrowingTickSystem());
-            systems.AddSystem(new MockSystem(log));
+            systems.Add(Phase.Simulation, new ThrowingTickSystem());
+            systems.Add(Phase.Simulation, new MockSystem(log));
 
             LogAssert.Expect(LogType.Exception, "Exception: Tick 예외");
             Assert.DoesNotThrow(() => systems.Tick());
@@ -254,8 +254,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var mockSys = new MockCleanupSystem();
 
-            systems.AddSystem(new ThrowingCleanupSystem());
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, new ThrowingCleanupSystem());
+            systems.Add(Phase.Simulation, mockSys);
 
             systems.Tick();
             LogAssert.Expect(LogType.Exception, "Exception: Cleanup 예외");
@@ -270,8 +270,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var teardownSys = new MockTeardownSystem();
 
-            systems.AddSystem(new ThrowingTeardownSystem());
-            systems.AddSystem(teardownSys);
+            systems.Add(Phase.Simulation, new ThrowingTeardownSystem());
+            systems.Add(Phase.Simulation, teardownSys);
 
             LogAssert.Expect(LogType.Exception, "Exception: Teardown 예외");
             Assert.DoesNotThrow(() => systems.Teardown());
@@ -285,7 +285,7 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var mockSys = new MockFixedCleanupSystem();
 
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, mockSys);
             systems.FixedTick();
             systems.FixedCleanup();
             systems.FixedTick();
@@ -302,8 +302,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(context);
             var mockSys = new MockFixedCleanupSystem();
 
-            systems.AddSystem(new ThrowingFixedCleanupSystem());
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, new ThrowingFixedCleanupSystem());
+            systems.Add(Phase.Simulation, mockSys);
 
             systems.FixedTick();
             LogAssert.Expect(LogType.Exception, "Exception: FixedCleanup 예외");
@@ -317,7 +317,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             var systems = new Systems(context);
 
-            systems.AddSystem<MockFixedTickSystem>();
+            systems.Add<MockFixedTickSystem>(Phase.Simulation);
             systems.FixedTick();
             systems.FixedTick();
 
@@ -334,8 +334,8 @@ namespace OVFL.ECS.Test
             var mockSys = new MockSystem(log);
             var teardownSys = new MockTeardownSystem();
 
-            systems.AddSystem(mockSys);
-            systems.AddSystem(teardownSys);
+            systems.Add(Phase.Simulation, mockSys);
+            systems.Add(Phase.Simulation, teardownSys);
 
             systems.Teardown();
 
@@ -347,50 +347,16 @@ namespace OVFL.ECS.Test
             Assert.AreEqual(0, mockSys.TickCount);
         }
 
-        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
-
-        /// <summary>AddSystem을 재정의해 가로채는 파생 클래스. 가상 호출을 재는 탐침이다.</summary>
-        class CountingSystems : Systems
-        {
-            public int AddCalls;
-            public CountingSystems(Context context) : base(context) { }
-
-            public override Systems AddSystem(ISystem system)
-            {
-                AddCalls++;
-                return base.AddSystem(system);
-            }
-        }
-
-        [Test]
-        public void AddSystem_파생_클래스의_재정의를_탄다()
-        {
-            var systems = new CountingSystems(new Context());
-
-            systems.AddSystem(new MockTeardownSystem());
-
-            Assert.AreEqual(1, systems.AddCalls);
-        }
-
-        [Test]
-        public void AddSystem_제네릭_오버로드도_같은_재정의를_탄다()
-        {
-            // 두 오버로드 중 하나만 가상이면 제네릭으로 넣은 시스템만
-            // 파생 클래스를 건너뛴다. 그 어긋남을 막는 테스트다.
-            var systems = new CountingSystems(new Context());
-
-            systems.AddSystem<MockTeardownSystem>();
-
-            Assert.AreEqual(1, systems.AddCalls);
-        }
+        // ── 예외 정책과 스텝 카운터 ────────────────────────────────────
+        // 파생 클래스가 Add를 가로채는지는 PhaseAndInboxTests가 본다.
 
         [Test]
         public void RethrowOnSystemException_켜면_호출자까지_올라온다()
         {
             var systems = new Systems(new Context());
             var log = new List<string>();
-            systems.AddSystem(new ThrowingTickSystem());
-            systems.AddSystem(new MockSystem(log));
+            systems.Add(Phase.Simulation, new ThrowingTickSystem());
+            systems.Add(Phase.Simulation, new MockSystem(log));
 
             Systems.RethrowOnSystemException = true;
 
@@ -406,8 +372,8 @@ namespace OVFL.ECS.Test
             var systems = new Systems(new Context());
             var log = new List<string>();
             var mockSys = new MockSystem(log);
-            systems.AddSystem(new ThrowingTeardownSystem());
-            systems.AddSystem(mockSys);
+            systems.Add(Phase.Simulation, new ThrowingTeardownSystem());
+            systems.Add(Phase.Simulation, mockSys);
 
             Systems.RethrowOnSystemException = true;
 
@@ -442,7 +408,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             var systems = new Systems(context);
             uint seen = uint.MaxValue;
-            systems.AddSystem(new TickCounterProbe(v => seen = v));
+            systems.Add(Phase.Simulation, new TickCounterProbe(v => seen = v));
 
             systems.Tick();
 

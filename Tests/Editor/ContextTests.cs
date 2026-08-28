@@ -129,6 +129,7 @@ namespace OVFL.ECS.Test
             // DestroyEntity 호출 직후 AllEntities에서 제외되는지 확인
             var e1 = _context.CreateEntity();
             var e2 = _context.CreateEntity();
+            _context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
 
             _context.DestroyEntity(e1);
 
@@ -174,6 +175,11 @@ namespace OVFL.ECS.Test
             _context.CreateEntity();
             _context.CreateEntity();
 
+            Assert.AreEqual(0, _context.EntityCount, "아직 등장 전");
+            Assert.AreEqual(3, _context.PendingCount);
+
+            _context.Flush();
+
             Assert.AreEqual(3, _context.EntityCount);
         }
 
@@ -182,6 +188,7 @@ namespace OVFL.ECS.Test
         {
             var e1 = _context.CreateEntity();
             _context.CreateEntity();
+            _context.Flush();
 
             _context.DestroyEntity(e1);
 

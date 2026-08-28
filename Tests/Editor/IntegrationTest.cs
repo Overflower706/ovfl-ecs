@@ -30,7 +30,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             var systems = new Systems(context);
 
-            systems.AddSystem(new DamageSystem());
+            systems.Add(Phase.Simulation, new DamageSystem());
 
             // 2. 엔티티 생성 및 데이터 설정
             var player = context.CreateEntity(); // ID: 0

@@ -3,14 +3,37 @@ using System.Collections.Generic;
 
 namespace OVFL.ECS
 {
+    /// <summary>
+    /// 시스템을 모아 <see cref="Phase"/> 순서로 돌립니다.
+    /// </summary>
+    /// <remarks>
+    /// <b>한 스텝(<see cref="Tick"/>)에서 일어나는 일:</b>
+    /// <code>
+    /// Tick++
+    /// Phase마다:
+    ///     인박스 배출 · 이벤트 발행 · Flush     ← 경계
+    ///     그 Phase의 시스템들을 등록 순서로 실행
+    /// 마지막에: Flush · 이번 스텝의 이벤트 정리 · Flush
+    /// </code>
+    /// 경계가 Phase 앞에 있으므로 <b>앞 Phase가 만든 것은 뒤 Phase에서 보이고,
+    /// 같은 Phase 안에서는 엔티티 집합이 고정</b>입니다.
+    /// </remarks>
     public class Systems
     {
+        private static readonly Phase[] PhaseOrder =
+        {
+            Phase.Inbox, Phase.Input, Phase.Simulation, Phase.Reaction, Phase.View, Phase.Outbox
+        };
+
         private readonly Context context;
         private readonly List<ISystem> allSystems = new();
+
+        // Phase별 버킷. 인덱스가 곧 Phase 값이다.
+        private readonly List<ITickSystem>[] tickSystems;
+        private readonly List<IFixedTickSystem>[] fixedTickSystems;
+
         private readonly List<ISetupSystem> setupSystems = new();
-        private readonly List<ITickSystem> tickSystems = new();
         private readonly List<ICleanupSystem> cleanupSystems = new();
-        private readonly List<IFixedTickSystem> fixedTickSystems = new();
         private readonly List<IFixedCleanupSystem> fixedCleanupSystems = new();
         private readonly List<ITeardownSystem> teardownSystems = new();
 
@@ -33,25 +56,41 @@ namespace OVFL.ECS
         public Systems(Context context)
         {
             this.context = context;
+
+            int phaseCount = PhaseOrder.Length;
+            tickSystems = new List<ITickSystem>[phaseCount];
+            fixedTickSystems = new List<IFixedTickSystem>[phaseCount];
+            for (int i = 0; i < phaseCount; i++)
+            {
+                tickSystems[i] = new List<ITickSystem>();
+                fixedTickSystems[i] = new List<IFixedTickSystem>();
+            }
         }
 
-        public virtual Systems AddSystem(ISystem system)
-        {
-            allSystems.Add(system);
+        // ── 등록 ──────────────────────────────────────────────────────────
 
+        /// <summary>시스템을 그 <see cref="Phase"/>에 등록합니다.</summary>
+        public virtual Systems Add(Phase phase, ISystem system)
+        {
+            if (system == null) throw new ArgumentNullException(nameof(system));
+
+            allSystems.Add(system);
             system.Context = context;
 
+            int p = (int)phase;
+
+            if (system is ITickSystem tickSystem)
+                tickSystems[p].Add(tickSystem);
+
+            if (system is IFixedTickSystem fixedTickSystem)
+                fixedTickSystems[p].Add(fixedTickSystem);
+
+            // 아래 넷은 Phase와 무관하다 — 스텝 전체에 한 번씩 도는 것들이다.
             if (system is ISetupSystem setupSystem)
                 setupSystems.Add(setupSystem);
 
-            if (system is ITickSystem tickSystem)
-                tickSystems.Add(tickSystem);
-
             if (system is ICleanupSystem cleanupSystem)
                 cleanupSystems.Add(cleanupSystem);
-
-            if (system is IFixedTickSystem fixedTickSystem)
-                fixedTickSystems.Add(fixedTickSystem);
 
             if (system is IFixedCleanupSystem fixedCleanupSystem)
                 fixedCleanupSystems.Add(fixedCleanupSystem);
@@ -63,149 +102,204 @@ namespace OVFL.ECS
         }
 
         /// <remarks>
-        /// <see cref="AddSystem(ISystem)"/>이 <c>virtual</c>이므로 여기서도 파생 클래스의
+        /// <see cref="Add(Phase, ISystem)"/>이 <c>virtual</c>이므로 여기서도 파생 클래스의
         /// 재정의를 탑니다. 둘 중 하나만 가상이면 <b>제네릭으로 넣은 시스템만 파생을 건너뛰는</b>
         /// 어긋남이 생깁니다.
         /// </remarks>
-        public virtual Systems AddSystem<T>() where T : ISystem, new()
-        {
-            var system = new T();
-            return AddSystem(system);
-        }
+        public virtual Systems Add<T>(Phase phase) where T : ISystem, new() => Add(phase, new T());
 
-        public virtual Systems RemoveSystem(ISystem system)
+        /// <summary>Phase 없이 등록하던 옛 API. <see cref="Phase.Simulation"/>으로 들어갑니다.</summary>
+        /// <remarks>
+        /// <b>이주용으로만 남겨 둡니다.</b> 전부 <see cref="Add(Phase, ISystem)"/>로 옮긴 뒤
+        /// 다음 메이저에서 지웁니다. 그때까지는 옛 코드가 컴파일은 되되 경고로 남습니다.
+        /// </remarks>
+        [Obsolete("Add(Phase, ISystem)을 쓰세요. Phase를 정하지 않으면 순서가 등록 줄에 묶입니다.")]
+        public Systems AddSystem(ISystem system) => Add(Phase.Simulation, system);
+
+        /// <inheritdoc cref="AddSystem(ISystem)"/>
+        [Obsolete("Add<T>(Phase)를 쓰세요. Phase를 정하지 않으면 순서가 등록 줄에 묶입니다.")]
+        public Systems AddSystem<T>() where T : ISystem, new() => Add(Phase.Simulation, new T());
+
+        public virtual Systems Remove(ISystem system)
         {
             allSystems.Remove(system);
 
+            for (int p = 0; p < PhaseOrder.Length; p++)
+            {
+                if (system is ITickSystem tickSystem)
+                    tickSystems[p].Remove(tickSystem);
+                if (system is IFixedTickSystem fixedTickSystem)
+                    fixedTickSystems[p].Remove(fixedTickSystem);
+            }
+
             if (system is ISetupSystem setupSystem)
                 setupSystems.Remove(setupSystem);
-
-            if (system is ITickSystem tickSystem)
-                tickSystems.Remove(tickSystem);
-
             if (system is ICleanupSystem cleanupSystem)
                 cleanupSystems.Remove(cleanupSystem);
-
-            if (system is IFixedTickSystem fixedTickSystem)
-                fixedTickSystems.Remove(fixedTickSystem);
-
             if (system is IFixedCleanupSystem fixedCleanupSystem)
                 fixedCleanupSystems.Remove(fixedCleanupSystem);
-
             if (system is ITeardownSystem teardownSystem)
                 teardownSystems.Remove(teardownSystem);
 
             return this;
         }
 
+        [Obsolete("Remove(ISystem)을 쓰세요.")]
+        public Systems RemoveSystem(ISystem system) => Remove(system);
+
         public virtual void RemoveAllSystems()
         {
             allSystems.Clear();
+            for (int p = 0; p < PhaseOrder.Length; p++)
+            {
+                tickSystems[p].Clear();
+                fixedTickSystems[p].Clear();
+            }
             setupSystems.Clear();
-            tickSystems.Clear();
             cleanupSystems.Clear();
-            fixedTickSystems.Clear();
             fixedCleanupSystems.Clear();
             teardownSystems.Clear();
         }
 
-        /// <summary>
-        /// 모든 Setup System을 실행합니다 (초기화 시 한 번)
-        /// </summary>
+        /// <summary>등록된 시스템 수.</summary>
+        public int Count => allSystems.Count;
+
+        // ── 실행 ──────────────────────────────────────────────────────────
+
+        /// <summary>모든 Setup System을 실행합니다 (초기화 시 한 번).</summary>
         public void Setup()
         {
-            foreach (var system in setupSystems)
+            try
             {
-                try { system.Setup(); }
-                catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
+                foreach (var system in setupSystems)
+                    Run(() => system.Setup());
             }
+            finally { context?.Flush(); }
         }
 
-        /// <summary>
-        /// 모든 Tick System을 실행합니다.
-        /// </summary>
+        /// <summary>한 스텝을 돌립니다. Phase 순서로 실행하고 경계마다 반영합니다.</summary>
         public void Tick()
         {
             if (context != null) context.Tick++;
 
-            foreach (var system in tickSystems)
-            {
-                try { system.Tick(); }
-                catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
-            }
-        }
-
-        /// <summary>
-        /// 모든 Cleanup System을 실행합니다. Tick() 이후 직접 호출해야 합니다.
-        /// </summary>
-        public void Cleanup()
-        {
-            context?.FlushDestroyQueue();
             try
             {
-                foreach (var system in cleanupSystems)
+                for (int p = 0; p < PhaseOrder.Length; p++)
                 {
-                    try { system.Cleanup(); }
-                    catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
+                    Boundary(p == 0);
+
+                    var bucket = tickSystems[p];
+                    for (int i = 0; i < bucket.Count; i++)
+                    {
+                        var system = bucket[i];
+                        Run(() => system.Tick());
+                    }
                 }
             }
-            // 예외를 다시 던지더라도 삭제 큐는 비운다. 안 그러면 죽은 엔티티가
-            // 다음 스텝까지 남아, 원래 예외와 무관한 곳에서 두 번째 사고가 난다.
-            finally { context?.FlushDestroyQueue(); }
+            finally
+            {
+                context?.Flush();
+                // 이번 스텝의 이벤트는 이번 스텝에서만 산다. 남기면 다음 스텝이
+                // 지난 이벤트를 또 읽는다.
+                context?.DestroyEvents(isFixed: false);
+                context?.Flush();
+            }
         }
 
-        /// <summary>
-        /// 모든 FixedTick System을 실행합니다.
-        /// </summary>
+        /// <summary>FixedUpdate 주기의 한 스텝.</summary>
         public void FixedTick()
         {
             if (context != null) context.FixedTick++;
 
-            foreach (var system in fixedTickSystems)
+            try
             {
-                try { system.FixedTick(); }
-                catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
+                for (int p = 0; p < PhaseOrder.Length; p++)
+                {
+                    if (context != null)
+                    {
+                        if (p == 0) context.DrainInbox();
+                        context.PublishFixedEvents();
+                        context.Flush();
+                    }
+
+                    var bucket = fixedTickSystems[p];
+                    for (int i = 0; i < bucket.Count; i++)
+                    {
+                        var system = bucket[i];
+                        Run(() => system.FixedTick());
+                    }
+                }
+            }
+            finally
+            {
+                context?.Flush();
+                context?.DestroyEvents(isFixed: true);
+                context?.Flush();
             }
         }
 
-        /// <summary>
-        /// 모든 FixedCleanup System을 실행합니다. FixedTick() 이후 직접 호출해야 합니다.
-        /// </summary>
+        /// <summary>모든 Cleanup System을 실행합니다. <see cref="Tick"/> 이후에 부릅니다.</summary>
+        public void Cleanup()
+        {
+            context?.Flush();
+            try
+            {
+                foreach (var system in cleanupSystems)
+                    Run(() => system.Cleanup());
+            }
+            // 예외를 다시 던지더라도 반영은 한다. 안 그러면 죽은 엔티티가 다음 스텝까지
+            // 남아, 원래 예외와 무관한 곳에서 두 번째 사고가 난다.
+            finally { context?.Flush(); }
+        }
+
+        /// <summary>모든 FixedCleanup System을 실행합니다. <see cref="FixedTick"/> 이후에 부릅니다.</summary>
         public void FixedCleanup()
         {
-            context?.FlushDestroyQueue();
+            context?.Flush();
             try
             {
                 foreach (var system in fixedCleanupSystems)
-                {
-                    try { system.FixedCleanup(); }
-                    catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
-                }
+                    Run(() => system.FixedCleanup());
             }
-            finally { context?.FlushDestroyQueue(); }
+            finally { context?.Flush(); }
         }
 
-        /// <summary>
-        /// 모든 Teardown System을 실행합니다 (마무리 시 한 번)
-        /// 실행 완료 후 모든 시스템이 자동으로 해제됩니다.
-        /// </summary>
+        /// <summary>모든 Teardown System을 실행합니다. 끝나면 시스템 목록을 비웁니다.</summary>
         public void Teardown()
         {
             try
             {
                 foreach (var system in teardownSystems)
-                {
-                    try { system.Teardown(); }
-                    catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
-                }
+                    Run(() => system.Teardown());
             }
             // Teardown이 실패해도 시스템 목록은 반드시 비운다. 남겨두면 이미 정리된
             // 리소스를 붙든 시스템이 다음 Setup에서 되살아난다.
             finally
             {
-                context?.FlushDestroyQueue();
+                context?.Flush();
                 RemoveAllSystems();
             }
+        }
+
+        // ── 내부 ──────────────────────────────────────────────────────────
+
+        /// <summary>Phase 경계. 여기서만 세계가 바뀐다.</summary>
+        private void Boundary(bool drainInbox)
+        {
+            if (context == null) return;
+
+            // 인박스는 스텝의 맨 앞에서 한 번만 배출한다. Phase마다 배출하면
+            // 「밖에서 온 변경이 언제 적용됐는가」에 답이 여섯 개가 된다.
+            if (drainInbox) context.DrainInbox();
+
+            context.PublishEvents();
+            context.Flush();
+        }
+
+        private static void Run(Action body)
+        {
+            try { body(); }
+            catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
         }
     }
 }
