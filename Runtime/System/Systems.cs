@@ -186,7 +186,7 @@ namespace OVFL.ECS
             {
                 for (int p = 0; p < PhaseOrder.Length; p++)
                 {
-                    Boundary(p == 0);
+                    Boundary(p, isFixed: false);
 
                     var bucket = tickSystems[p];
                     for (int i = 0; i < bucket.Count; i++)
@@ -215,12 +215,7 @@ namespace OVFL.ECS
             {
                 for (int p = 0; p < PhaseOrder.Length; p++)
                 {
-                    if (context != null)
-                    {
-                        if (p == 0) context.DrainInbox();
-                        context.PublishFixedEvents();
-                        context.Flush();
-                    }
+                    Boundary(p, isFixed: true);
 
                     var bucket = fixedTickSystems[p];
                     for (int i = 0; i < bucket.Count; i++)
@@ -284,15 +279,27 @@ namespace OVFL.ECS
         // ── 내부 ──────────────────────────────────────────────────────────
 
         /// <summary>Phase 경계. 여기서만 세계가 바뀐다.</summary>
-        private void Boundary(bool drainInbox)
+        /// <remarks>
+        /// 두 레인이 같은 코드를 탄다. 갈라 두면 한쪽만 고치는 사고가 난다.
+        /// </remarks>
+        private void Boundary(int phaseIndex, bool isFixed)
         {
             if (context == null) return;
 
-            // 인박스는 스텝의 맨 앞에서 한 번만 배출한다. Phase마다 배출하면
-            // 「밖에서 온 변경이 언제 적용됐는가」에 답이 여섯 개가 된다.
-            if (drainInbox) context.DrainInbox();
+            // 인박스는 Tick 레인이 소유한다. 첫 Phase 앞에서 한 번만 배출한다.
+            //
+            // Phase마다 배출하면 「밖에서 온 변경이 언제 적용됐는가」에 답이 여섯 개가 되고,
+            // 두 레인이 나눠 배출하면 인박스 안에서 RaiseEvent로 낸 것이 어느 큐로 갈지가
+            // RPC 도착 시점에 따라 갈린다 — FixedTick이 배출하면 그 이벤트는 PublishFixedEvents가
+            // 부르지 않으므로 다음 Tick 경계까지 잠든다. 넣는 쪽이 피할 방법이 없는 어긋남이다.
+            //
+            // 대가는 밖에서 온 변경을 FixedTick이 최대 한 프레임 늦게 본다는 것이다.
+            // 물리 레인은 자기 상태로 돌고, 네트워크에서 온 것을 읽는 시스템은 Tick 레인에 둔다.
+            if (!isFixed && phaseIndex == 0) context.DrainInbox();
 
-            context.PublishEvents();
+            if (isFixed) context.PublishFixedEvents();
+            else context.PublishEvents();
+
             context.Flush();
         }
 

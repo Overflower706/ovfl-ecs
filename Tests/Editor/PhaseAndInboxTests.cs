@@ -324,6 +324,82 @@ namespace OVFL.ECS.Test
             Assert.Throws<ArgumentNullException>(() => context.Enqueue(null));
         }
 
+        [Test]
+        public void 인박스는_FixedTick이_배출하지_않는다()
+        {
+            // 인박스를 Tick 레인이 소유한다. 두 레인이 나눠 배출하면 인박스 안에서
+            // RaiseEvent로 낸 것이 어느 큐로 갈지가 RPC 도착 시점에 따라 갈린다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var score = context.CreateEntity().AddComponent(new Score());
+            context.Flush();
+
+            context.Enqueue(ctx => ctx.GetUniqueComponent<Score>().Value = 7);
+
+            systems.FixedTick();
+            Assert.AreEqual(0, score.Value, "FixedTick은 배출하지 않는다");
+            Assert.AreEqual(1, context.InboxCount);
+
+            systems.Tick();
+            Assert.AreEqual(7, score.Value, "Tick이 배출한다");
+            Assert.AreEqual(0, context.InboxCount);
+        }
+
+        [Test]
+        public void FixedTick도_Phase_순서로_돈다()
+        {
+            // 인박스만 Tick 레인의 것이고, 경계의 나머지는 두 레인이 같다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var order = new List<string>();
+
+            systems.Add(Phase.Outbox, new FixedRecorder("Outbox", order));
+            systems.Add(Phase.View, new FixedRecorder("View", order));
+            systems.Add(Phase.Inbox, new FixedRecorder("Inbox", order));
+            systems.Add(Phase.Simulation, new FixedRecorder("Simulation", order));
+
+            systems.FixedTick();
+
+            Assert.AreEqual("Inbox>Simulation>View>Outbox", string.Join(">", order));
+        }
+
+        class FixedRecorder : IFixedTickSystem
+        {
+            private readonly string name;
+            private readonly List<string> log;
+            public Context Context { get; set; }
+            public FixedRecorder(string name, List<string> log) { this.name = name; this.log = log; }
+            public void FixedTick() => log.Add(name);
+        }
+
+        [Test]
+        public void FixedTick의_이벤트는_fixed_큐로만_간다()
+        {
+            var context = new Context();
+            var systems = new Systems(context);
+
+            int seenFixed = 0, seenTick = 0;
+            systems.Add(Phase.Inbox, new FixedProbe(ctx => ctx.RaiseFixedEvent(new Pinged())));
+            systems.Add(Phase.Reaction, new FixedProbe(ctx =>
+                ctx.ProcessEvents<Pinged>((_, __) => seenFixed++)));
+            systems.Add(Phase.Reaction, new Probe(ctx =>
+                ctx.ProcessEvents<Pinged>((_, __) => seenTick++)));
+
+            systems.FixedTick();
+            Assert.AreEqual(1, seenFixed, "같은 FixedTick 안의 뒤 Phase가 본다");
+
+            systems.Tick();
+            Assert.AreEqual(0, seenTick, "FixedTick이 끝날 때 정리되므로 Tick은 못 본다");
+        }
+
+        class FixedProbe : IFixedTickSystem
+        {
+            private readonly Action<Context> body;
+            public Context Context { get; set; }
+            public FixedProbe(Action<Context> body) { this.body = body; }
+            public void FixedTick() => body(Context);
+        }
+
         // ── 스텝 카운터 ───────────────────────────────────────────────────
 
         [Test]

@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-08-30
+
+### Changed
+- **인박스를 `Tick` 레인이 소유한다.** `Systems.FixedTick`은 더 이상 배출하지 않는다.
+  두 레인이 나눠 배출하면 인박스 안에서 `RaiseEvent`(비-fixed)로 낸 것이 어느 큐로 갈지가
+  RPC 도착 시점에 따라 갈렸다 — `FixedTick`이 배출하면 그 경계는 `PublishFixedEvents`만
+  부르므로 그 이벤트가 다음 `Tick` 경계까지 잠들었다. **넣는 쪽이 피할 방법이 없는 어긋남**이라
+  배출 지점을 하나로 모았다.
+
+  대가는 밖에서 온 변경을 `FixedTick`이 **최대 한 프레임 늦게** 본다는 것이다.
+  네트워크에서 온 값을 읽는 시스템은 `ITickSystem`에 둔다 —
+  `IFixedTickSystem`은 물리처럼 자기 상태로 도는 것을 위한 자리다.
+- **`Systems.FixedTick`이 `Boundary()`를 쓴다.** 경계 코드를 두 벌 적어 두어
+  한쪽만 고치는 사고가 나던 것을 `Boundary(int phaseIndex, bool isFixed)` 하나로 합쳤다.
+  `FixedTick`도 Phase 순서와 이벤트 발행은 그대로다.
+
+### Added
+- 테스트 셋 — 인박스는 `FixedTick`이 배출하지 않는다 / `FixedTick`도 Phase 순서로 돈다 /
+  `FixedTick`의 이벤트는 fixed 큐로만 간다.
+
 ## [3.1.3] - 2026-08-30
 
 ### Removed
