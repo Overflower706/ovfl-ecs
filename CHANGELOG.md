@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.3] - 2026-08-30
+
+### Removed
+- **다리(bridge) 설계를 README에서 걷어냈다.** `EcsScene`·`Bind`·`SessionBridge`·`CatBridge`·
+  `OwnedByMeComponent`·`NetworkOutboxSystem`은 이 패키지에 없고, 들어올 수도 없다 —
+  `Runtime/OVFL.ECS.Runtime.asmdef`의 `references`가 비어 있어 Netcode를 참조하지 않으므로
+  `NetworkVariable`·`[Rpc]`를 쓰는 코드는 이 어셈블리에서 컴파일되지 않는다.
+  그 설계는 Catverse 위키의 `Docs/OvflEcs.html`이 소유하고, README는 링크만 든다.
+
+### Changed
+- 네트워크 절을 **「인박스 — 밖에서 들어온 것을 받는 자리」**로 바꿨다.
+  이 패키지가 밖에서 들어온 것에 대해 주는 것은 `Context.Enqueue` 하나다.
+- **인박스 배출 지점을 바로잡았다.** 배출은 `Tick()`과 `FixedTick()` 중 **먼저 오는 쪽**의 맨 앞에서
+  일어난다. 두 레인이 같은 인박스를 나눠 배출하므로 어느 쪽이 배출할지는 고를 수 없고,
+  인박스 안에서 `RaiseEvent`(비-fixed)를 부른 경우 배출이 `FixedTick()`에서 일어났다면
+  그 이벤트는 다음 `Tick()` 경계에서 발행된다. `Context.Enqueue`의 주석도 같이 고쳤다.
+- 쿼리·이벤트 API 목록에 빠져 있던 것을 채웠다 —
+  `GetUniqueEntityWithComponent`·`GetUniqueComponent`·`TryGetEntityByID`·`GetEntityByID`·`ProcessEventsWhere`.
+
 ## [3.1.2] - 2026-08-29
 
 ### Fixed
