@@ -98,8 +98,8 @@ namespace OVFL.ECS
         // Obsolete (TryGetUniqueEntity / TryGetUniqueComponent으로 대체)
         // ───────────────────────────────────────────
 
-        // 아직 호출부가 많아 남겨 둔다. 에러 로그를 남기는 동작이 이 둘의 존재 이유이므로
-        // 그건 그대로 두고, 호출마다 리스트를 만들던 것만 Try 쪽에 위임해 없앴다.
+        // 호출부가 많아 남겨 둔다. 없을 때 에러 로그를 남기는 것이 이 둘의 존재 이유다 —
+        // 찾기는 Try 쪽에 위임하고 로그만 여기서 얹는다.
 
         [Obsolete("GetUniqueComponent은 TryGetUniqueComponent로 대체되었습니다.")]
         public static T GetUniqueComponent<T>(this Context context) where T : class, IComponent

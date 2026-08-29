@@ -21,7 +21,7 @@ namespace OVFL.ECS.Test
             var e1 = context.CreateEntity(); e1.AddComponent<TagComponent>();
             context.CreateEntity(); // TagComponent 없음
             var e3 = context.CreateEntity(); e3.AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var result = new List<Entity>(context.GetEntitiesWith<TagComponent>());
 
@@ -35,7 +35,7 @@ namespace OVFL.ECS.Test
         {
             var context = new Context();
             context.CreateEntity();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var result = new List<Entity>(context.GetEntitiesWith<TagComponent>());
 
@@ -45,12 +45,12 @@ namespace OVFL.ECS.Test
         [Test]
         public void GetEntitiesWith_돌면서_엔티티를_만들어도_터지지_않는다()
         {
-            // 1.0.2 전에는 yield return이라 여기서 컬렉션 수정 예외가 났다.
+            // 결과가 확정된 목록이라 도는 도중에 집합을 건드려도 안전하다.
             var context = new Context();
             context.CreateEntity().AddComponent<TagComponent>();
             context.CreateEntity().AddComponent<TagComponent>();
             context.CreateEntity().AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             Assert.DoesNotThrow(() =>
             {
@@ -68,11 +68,11 @@ namespace OVFL.ECS.Test
         {
             var context = new Context();
             context.CreateEntity().AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var result = context.GetEntitiesWith<TagComponent>();
             context.CreateEntity().AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             Assert.AreEqual(1, result.Count, "나중에 만든 것은 이미 뜬 결과에 안 들어온다");
             Assert.AreEqual(2, context.GetEntitiesWith<TagComponent>().Count, "다시 부르면 반영된다");
@@ -84,7 +84,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             context.CreateEntity().AddComponent<TagComponent>();
             context.CreateEntity().AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             Assert.DoesNotThrow(() =>
             {
@@ -105,7 +105,7 @@ namespace OVFL.ECS.Test
         {
             var context = new Context();
             var e = context.CreateEntity(); e.AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var found = context.TryGetUniqueEntity<TagComponent>(out var result);
 
@@ -130,7 +130,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             context.CreateEntity().AddComponent<TagComponent>();
             context.CreateEntity().AddComponent<TagComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var found = context.TryGetUniqueEntity<TagComponent>(out var result);
 
@@ -145,7 +145,7 @@ namespace OVFL.ECS.Test
             context.CreateEntity().AddComponent<OtherComponent>();
             var target = context.CreateEntity(); target.AddComponent<TagComponent>();
             context.CreateEntity().AddComponent<OtherComponent>();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var found = context.TryGetUniqueEntity<TagComponent>(out var result);
 
@@ -163,7 +163,7 @@ namespace OVFL.ECS.Test
             var context = new Context();
             var tag = new TagComponent();
             context.CreateEntity().AddComponent(tag);
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var found = context.TryGetUniqueComponent<TagComponent>(out var result);
 
@@ -191,7 +191,7 @@ namespace OVFL.ECS.Test
         {
             var context = new Context();
             var e = context.CreateEntity();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
 
             var found = context.TryGetEntityByID(e.ID, out var result);
 
@@ -215,7 +215,7 @@ namespace OVFL.ECS.Test
         {
             var context = new Context();
             var e = context.CreateEntity();
-            context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            context.Flush();
             int id = e.ID;
             context.DestroyEntity(e);
             context.FlushDestroyQueue();

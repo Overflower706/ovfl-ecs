@@ -6,7 +6,7 @@ using OVFL.ECS;
 namespace OVFL.ECS.Test
 {
     /// <summary>
-    /// 3.0.0의 핵심 명세 — 실행 순서를 무엇이 정하는가, 밖에서 온 변경이 언제 적용되는가.
+    /// 핵심 명세 — 실행 순서를 무엇이 정하는가, 밖에서 온 변경이 언제 적용되는가.
     /// </summary>
     [TestFixture]
     public class PhaseAndInboxTests
@@ -66,8 +66,7 @@ namespace OVFL.ECS.Test
         [Test]
         public void 같은_Phase_안에서는_등록_순서다()
         {
-            // Phase가 없애는 것은 「멀리 떨어진 두 시스템의 순서가 우연히 정해지는 것」이지
-            // 순서 자체가 아니다. 이 사실을 명세로 박아 둔다.
+            // Phase는 큰 덩어리의 순서를 정하고, 그 안은 적은 순서대로 돈다.
             var systems = new Systems(new Context());
             var order = new List<string>();
 

@@ -123,7 +123,7 @@ namespace OVFL.ECS.Test
             Assert.IsTrue((Entity)null == null);
         }
 
-        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
+        // ── 컴포넌트 키와 인자 검사 ──────────────────────────────────
 
         [Test]
         public void AddComponent_기반_타입_변수로_넘겨도_실제_타입으로_찾힌다()

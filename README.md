@@ -1,6 +1,6 @@
 # OVFL ECS
 
-Unity용 ECS. **성능이 아니라 구조를 위한 것**입니다.
+Unity용 ECS. **구조를 위한 것**입니다.
 
 메모리 최적화(Burst, NativeArray, Job System)는 추구하지 않습니다. 대신
 데이터와 기능의 분리, 실행 순서의 명시, 생명주기 관리 같은 **관리 기능**은 챙깁니다.
@@ -125,7 +125,7 @@ public class IngameECSRunner : MonoBehaviour
 ```
 
 **Runner가 하는 일은 조립과 호출뿐입니다.** 게임 로직을 Runner에 적기 시작하면
-그것은 이미 시스템이 아니라 Manager이고, ECS 바깥에 상태가 생깁니다.
+ECS 바깥에 상태가 생기고, 그 상태는 Phase 순서 밖에서 바뀝니다.
 
 ### Setup / Tick / Cleanup / Teardown
 

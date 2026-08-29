@@ -6,8 +6,8 @@ using OVFL.ECS;
 namespace OVFL.ECS.Test
 {
     /// <summary>
-    /// 이벤트의 수명 명세. 3.0.0에서 발행·정리가 <see cref="Systems"/> 안으로 들어왔으므로
-    /// 더 이상 EventPublisherSystem / EventCleanupSystem을 등록하지 않는다.
+    /// 이벤트의 수명 명세. 발행과 정리는 <see cref="Systems"/>가 Phase 경계에서 하므로
+    /// 등록할 시스템이 없다.
     /// </summary>
     [TestFixture]
     public class EventSystemTests

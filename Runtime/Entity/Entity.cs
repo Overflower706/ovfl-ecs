@@ -21,9 +21,9 @@ namespace OVFL.ECS
         /// 컴포넌트를 부착합니다. 키는 <b>넘긴 인스턴스의 실제 타입</b>입니다.
         /// </summary>
         /// <remarks>
-        /// 정적 타입(<c>typeof(T)</c>)이 아니라 <c>component.GetType()</c>으로 잡습니다.
-        /// 기반 타입 변수로 넘겼을 때 — <c>IComponent c = new Foo(); e.AddComponent(c);</c> —
-        /// 키가 <c>IComponent</c>에 박혀 <c>GetComponent&lt;Foo&gt;()</c>가 조용히 null을 주던 것을 막습니다.
+        /// <c>component.GetType()</c>으로 잡으므로 기반 타입 변수로 넘겨도 제대로 들어갑니다 —
+        /// <c>IComponent c = new Foo(); e.AddComponent(c);</c> 뒤에
+        /// <c>GetComponent&lt;Foo&gt;()</c>가 그 인스턴스를 돌려줍니다.
         /// </remarks>
         public T AddComponent<T>(T component) where T : class, IComponent
         {

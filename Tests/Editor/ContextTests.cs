@@ -129,7 +129,7 @@ namespace OVFL.ECS.Test
             // DestroyEntity 호출 직후 AllEntities에서 제외되는지 확인
             var e1 = _context.CreateEntity();
             var e2 = _context.CreateEntity();
-            _context.Flush(); // 3.0.0: 생성은 Flush에서 등장한다
+            _context.Flush();
 
             _context.DestroyEntity(e1);
 
@@ -229,7 +229,7 @@ namespace OVFL.ECS.Test
             Assert.DoesNotThrow(() => _context.DestroyAllEntities());
         }
 
-        // ── 2.1.0에서 더한 것 ──────────────────────────────────────────
+        // ── 조회와 스텝 카운터 ────────────────────────────────────────
 
         [Test]
         public void GetEntity_삭제_예약된_엔티티는_돌려주지_않는다()
