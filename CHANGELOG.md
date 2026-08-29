@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-08-30
+
+### Added
+- **스냅샷 — `ISnapshotable` · `Snapshot` · `Context.Capture()` · `Snapshot.Diff()`.**
+  「이 스텝에서 무엇이 어떻게 바뀌었나」를 한 곳에서 볼 수 있게 한다. 디버깅과 테스트를 위한 것이다.
+
+  **되돌리지는 않는다.** 복원은 엔티티를 되살리는 문제로 이어지고, 그때는 컴포넌트가 든
+  Unity 오브젝트 참조와 `Entity` 손잡이를 어떻게 되맞출지부터 정해야 한다. 뜨고 비교하는
+  것만으로도 쓸 데가 있으므로 거기까지만 한다.
+
+  **값을 내는 것은 오픈인이다.** `IComponent`에 제약이 없어서 패키지는 임의의 구현체를
+  어떻게 복사하는지 알 수 없다 — 컴포넌트가 `MonoBehaviour`일 수도 있다.
+  무엇이 「상태」인지는 그 컴포넌트만 안다.
+
+  **구현하지 않아도 스냅샷에는 남는다.** `Capture`는 모든 컴포넌트의 있고 없음을 적고,
+  값은 `ISnapshotable`인 것만 담는다. 그래서 태그처럼 필드가 없는 것도 붙고 떨어진 것이
+  `Diff`에 잡힌다.
+
+  `Diff`의 키는 `(EntityID, Generation, ComponentType)`이다. **세대가 다르면 다른 엔티티**이므로,
+  지웠다 같은 ID로 다시 만든 것은 `Removed`와 `Added`로 나뉜다.
+
+### Changed
+- 쿼리 절에 `GetUniqueComponent`·`GetUniqueEntityWithComponent`가 `[Obsolete]`임을 적었다.
+  README의 인박스 예시도 `TryGetUniqueComponent`로 바꿨다 — 이주하라고 적어 둔 API를
+  대표 예시가 쓰고 있었다.
+
+### Added (테스트)
+- 스냅샷 16개.
+- 빈틈 넷 — `Remove`가 FixedTick 버킷에서도 뺀다 / `Setup`에서 만든 엔티티는 Setup이 끝나면
+  쿼리에 잡힌다 / `Enqueue(null)`은 던진다 / 로그를 남기는 옛 쿼리 API 셋.
+- **EditMode 121개 전부 통과** (Unity 6000.3.8f1, batchmode).
+
 ## [3.2.0] - 2026-08-30
 
 ### Changed

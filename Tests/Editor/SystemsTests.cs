@@ -162,7 +162,9 @@ namespace OVFL.ECS.Test
             systems.Add(Phase.Simulation, mockSys);
             systems.Tick(); // Tick 1회
 
+#pragma warning disable 618 // 이 테스트의 대상이 그 옛 API다
             systems.RemoveSystem(mockSys);
+#pragma warning restore 618
             systems.Tick(); // 제거됐으므로 실행 안 됨
 
             Assert.AreEqual(1, mockSys.TickCount);
@@ -421,6 +423,68 @@ namespace OVFL.ECS.Test
             private readonly Action<uint> _sink;
             public TickCounterProbe(Action<uint> sink) => _sink = sink;
             public void Tick() => _sink(Context.Tick);
+        }
+
+        // ───────────────────────────────────────────
+        // 등록 해제 · Setup의 반영
+        // ───────────────────────────────────────────
+
+        [Test]
+        public void Remove는_FixedTick_버킷에서도_뺀다()
+        {
+            // Phase 버킷이 Tick·FixedTick 둘이라, 한쪽만 빼면 죽은 시스템이 계속 돈다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var system = new BothLanes();
+            systems.Add(Phase.Simulation, system);
+
+            systems.Tick();
+            systems.FixedTick();
+            Assert.AreEqual(1, system.TickCount);
+            Assert.AreEqual(1, system.FixedTickCount);
+
+            systems.Remove(system);
+            systems.Tick();
+            systems.FixedTick();
+
+            Assert.AreEqual(1, system.TickCount, "Tick 버킷에서 빠졌다");
+            Assert.AreEqual(1, system.FixedTickCount, "FixedTick 버킷에서도 빠졌다");
+        }
+
+        class BothLanes : ITickSystem, IFixedTickSystem
+        {
+            public Context Context { get; set; }
+            public int TickCount;
+            public int FixedTickCount;
+            public void Tick() => TickCount++;
+            public void FixedTick() => FixedTickCount++;
+        }
+
+        [Test]
+        public void Setup에서_만든_엔티티는_Setup이_끝나면_쿼리에_잡힌다()
+        {
+            // Setup의 finally가 Flush한다. 안 그러면 첫 Tick의 첫 Phase까지 안 보인다.
+            var context = new Context();
+            var systems = new Systems(context);
+            systems.Add(Phase.Simulation, new SpawnOnSetup());
+
+            systems.Setup();
+
+            Assert.AreEqual(1, context.GetEntitiesWith<SpawnedMarker>().Count);
+        }
+
+        class SpawnedMarker : IComponent { }
+
+        class SpawnOnSetup : ISetupSystem
+        {
+            public Context Context { get; set; }
+            public void Setup() => Context.CreateEntity().AddComponent(new SpawnedMarker());
+        }
+
+        [Test]
+        public void Enqueue에_null을_넣으면_던진다()
+        {
+            Assert.Throws<ArgumentNullException>(() => new Context().Enqueue(null));
         }
     }
 }

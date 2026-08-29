@@ -12,7 +12,7 @@ Unity용 ECS. **구조를 위한 것**입니다.
 - 설치: `Packages/manifest.json`에 아래 한 줄. **버전은 태그로 고정하세요.**
 
 ```json
-"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.2.0"
+"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.3.0"
 ```
 
 > **`com.ovfl.ecs.extensions`는 이 패키지에 흡수됐습니다.**
@@ -154,7 +154,8 @@ ECS 바깥에 상태가 생기고, 그 상태는 Phase 순서 밖에서 바뀝�
 [Rpc(SendTo.ClientsAndHost)]
 void ScoreChangedRpc(int value)
 {
-    context.GetUniqueComponent<ScoreComponent>().Value = value;   // ❌
+    context.TryGetUniqueComponent<ScoreComponent>(out var s);
+    s.Value = value;                                              // ❌
 }
 ```
 
@@ -169,7 +170,10 @@ void ScoreChangedRpc(int value)
 [Rpc(SendTo.ClientsAndHost)]
 void ScoreChangedRpc(int value)
 {
-    context.Enqueue(ctx => ctx.GetUniqueComponent<ScoreComponent>().Value = value);   // ✅
+    context.Enqueue(ctx =>                                        // ✅
+    {
+        if (ctx.TryGetUniqueComponent<ScoreComponent>(out var s)) s.Value = value;
+    });
 }
 ```
 
@@ -245,16 +249,17 @@ Context.ProcessEvents<DamageEvent>((entity, e) => hp.Value -= e.Amount);
 Context.GetEntitiesWith<T>()                     // 목록 (스냅샷)
 Context.TryGetUniqueEntity<T>(out var entity)    // 정확히 하나일 때 true. 조용합니다
 Context.TryGetUniqueComponent<T>(out var comp)
-Context.GetUniqueEntityWithComponent<T>()        // 없거나 여럿이면 로그를 남깁니다
-Context.GetUniqueComponent<T>()
 Context.GetEntity(id)                            // Context 본체
 Context.TryGetEntityByID(id, out var entity)     // 확장. 조용합니다
-Context.GetEntityByID(id)
+Context.GetEntityByID(id)                        // 없으면 에러 로그
 Context.AllEntities                              // 지연 열거
 ```
 
 `GetEntitiesWith`는 **부르는 시점의 목록을 떠서** 줍니다. 결과를 돌면서 엔티티를
 만들거나 지워도 안전합니다.
+
+`GetUniqueComponent<T>()`와 `GetUniqueEntityWithComponent<T>()`는 **`[Obsolete]`입니다.**
+없거나 여럿일 때 에러 로그를 남기는 옛 API이고, `Try` 쪽으로 옮긴 뒤 다음 메이저에서 지웁니다.
 
 `Try`로 시작하는 것은 **로그를 남기지 않습니다.** 「없을 수도 있다」가 정상인 자리에서
 부르면 매 프레임 로그가 쌓이기 때문입니다. 없는 것이 잘못인지는 부른 쪽이 압니다.

@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using OVFL.ECS;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace OVFL.ECS.Test
 {
@@ -225,5 +228,50 @@ namespace OVFL.ECS.Test
             Assert.IsFalse(found);
             Assert.IsNull(result);
         }
+
+        // ───────────────────────────────────────────
+        // 로그를 남기는 쪽 — 없는 것이 잘못인 자리에서 쓴다.
+        // [Obsolete]이지만 지우기 전까지는 동작을 지켜야 한다.
+        // ───────────────────────────────────────────
+#pragma warning disable 618
+
+        [Test]
+        public void GetUniqueComponent_정확히_하나면_그것을_돌려준다()
+        {
+            var context = new Context();
+            var component = context.CreateEntity().AddComponent(new TagComponent());
+            context.Flush();
+
+            Assert.AreSame(component, context.GetUniqueComponent<TagComponent>());
+        }
+
+        [Test]
+        public void GetUniqueComponent_없으면_null과_함께_로그를_남긴다()
+        {
+            var context = new Context();
+
+            LogAssert.Expect(LogType.Error, new Regex("."));
+            Assert.IsNull(context.GetUniqueComponent<TagComponent>());
+        }
+
+        [Test]
+        public void GetUniqueEntityWithComponent_여럿이면_null과_함께_로그를_남긴다()
+        {
+            var context = new Context();
+            context.CreateEntity().AddComponent(new TagComponent());
+            context.CreateEntity().AddComponent(new TagComponent());
+            context.Flush();
+
+            LogAssert.Expect(LogType.Error, new Regex("."));
+            Assert.IsNull(context.GetUniqueEntityWithComponent<TagComponent>());
+        }
+
+        [Test]
+        public void GetEntityByID_없는_ID면_null을_돌려준다()
+        {
+            LogAssert.Expect(LogType.Error, new Regex("."));
+            Assert.IsNull(new Context().GetEntityByID(999));
+        }
+#pragma warning restore 618
     }
 }

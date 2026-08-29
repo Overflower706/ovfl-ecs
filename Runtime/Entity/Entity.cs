@@ -71,6 +71,14 @@ namespace OVFL.ECS
             _components.Remove(typeof(T));
         }
 
+        /// <summary>부착된 컴포넌트를 (타입, 인스턴스)로 열거합니다.</summary>
+        /// <remarks>
+        /// <b>패키지 안에서만 씁니다.</b> 밖으로 열면 「엔티티가 든 것을 훑어 무언가 한다」가 쉬워지고,
+        /// 그것은 시스템이 컴포넌트 타입을 정해 놓고 도는 이 패키지의 모양을 흐립니다.
+        /// <see cref="ContextSnapshotExtensions.Capture"/>가 이것을 씁니다.
+        /// </remarks>
+        internal IEnumerable<KeyValuePair<Type, IComponent>> Components => _components;
+
         /// <summary>「없음」을 뜻하는 자리표. ID가 음수라 어떤 Context에서도 살아 있지 않습니다.</summary>
         public static readonly Entity Null = new Entity(-1, 0);
         public bool IsNull => ID < 0;

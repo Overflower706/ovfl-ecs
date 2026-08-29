@@ -14,6 +14,15 @@ namespace OVFL.ECS.Test
         class Marker : IComponent { }
         class Score : IComponent { public int Value; }
 
+        static int Read(Context ctx)
+            => ctx.TryGetUniqueComponent<Score>(out var s) ? s.Value : -1;
+
+        static void Write(Context ctx, int value)
+        {
+            ctx.TryGetUniqueComponent<Score>(out var s);
+            s.Value = value;
+        }
+
         class Recorder : ITickSystem
         {
             public Context Context { get; set; }
@@ -188,7 +197,7 @@ namespace OVFL.ECS.Test
             uint appliedAtTick = 0;
             context.Enqueue(ctx =>
             {
-                ctx.GetUniqueComponent<Score>().Value = 99;
+                ctx.TryGetUniqueComponent<Score>(out var s); s.Value = 99;
                 appliedAtTick = ctx.Tick;
             });
 
@@ -210,10 +219,10 @@ namespace OVFL.ECS.Test
             var score = context.CreateEntity().AddComponent(new Score());
             context.Flush();
 
-            context.Enqueue(ctx => ctx.GetUniqueComponent<Score>().Value = 5);
+            context.Enqueue(ctx => Write(ctx, 5));
 
             int seen = -1;
-            systems.Add(Phase.Inbox, new Probe(ctx => seen = ctx.GetUniqueComponent<Score>().Value));
+            systems.Add(Phase.Inbox, new Probe(ctx => seen = Read(ctx)));
 
             systems.Tick();
 
@@ -236,9 +245,9 @@ namespace OVFL.ECS.Test
             {
                 systems.Add(phase, new Probe(ctx =>
                 {
-                    seen.Add(ctx.GetUniqueComponent<Score>().Value);
+                    seen.Add(Read(ctx));
                     // 도는 도중에 밖에서 들어온 것처럼 넣어 본다.
-                    ctx.Enqueue(c => c.GetUniqueComponent<Score>().Value = 42);
+                    ctx.Enqueue(c => { c.TryGetUniqueComponent<Score>(out var s); s.Value = 42; });
                 }));
             }
 
@@ -334,7 +343,7 @@ namespace OVFL.ECS.Test
             var score = context.CreateEntity().AddComponent(new Score());
             context.Flush();
 
-            context.Enqueue(ctx => ctx.GetUniqueComponent<Score>().Value = 7);
+            context.Enqueue(ctx => Write(ctx, 7));
 
             systems.FixedTick();
             Assert.AreEqual(0, score.Value, "FixedTick은 배출하지 않는다");
