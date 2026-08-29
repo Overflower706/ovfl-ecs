@@ -12,7 +12,7 @@ Unity용 ECS. **구조를 위한 것**입니다.
 - 설치: `Packages/manifest.json`에 아래 한 줄. **버전은 태그로 고정하세요.**
 
 ```json
-"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.3.0"
+"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.4.0"
 ```
 
 > **`com.ovfl.ecs.extensions`는 이 패키지에 흡수됐습니다.**

@@ -15,6 +15,9 @@ namespace OVFL.ECS
         /// 구현한 것만 담긴다. 아직 <see cref="Context.Flush"/>되지 않은 엔티티와 삭제 예약된
         /// 엔티티는 <see cref="Context.AllEntities"/>에 안 나오므로 빠진다.
         ///
+        /// 두 레인의 스텝 번호를 다 담는다 — 어느 레인에서 불렀는지는 여기서 알 수 없고,
+        /// 하나만 담으면 다른 레인에서 뜬 것에 엉뚱한 번호가 붙는다.
+        ///
         /// <b>공짜가 아니다.</b> 엔티티 전수 순회 + 값마다 박싱이다. 매 프레임 도는 자리가 아니라
         /// 디버깅·테스트처럼 <b>일부러 부르는 자리</b>를 위한 것이다.
         /// </remarks>
@@ -32,7 +35,7 @@ namespace OVFL.ECS
                 }
             }
 
-            return new Snapshot(context.Tick, entries);
+            return new Snapshot(context.Tick, context.FixedTick, entries);
         }
     }
 }

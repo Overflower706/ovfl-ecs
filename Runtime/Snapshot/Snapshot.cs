@@ -35,18 +35,36 @@ namespace OVFL.ECS
     /// </remarks>
     public sealed class Snapshot
     {
-        /// <summary>뜬 시점의 <see cref="Context.Tick"/>.</summary>
+        /// <summary>뜬 시점의 <see cref="Context.Tick"/> — Update 레인의 스텝 번호.</summary>
         public uint Tick { get; }
+
+        /// <summary>뜬 시점의 <see cref="Context.FixedTick"/> — 물리 레인의 스텝 번호.</summary>
+        /// <remarks>
+        /// <b>두 레인의 번호를 다 담는 이유.</b> 어느 레인에서 떴는지는 뜨는 쪽이 정하고,
+        /// 하나만 담으면 다른 레인에서 뜬 스냅샷에 <b>엉뚱한 번호가 붙는다.</b>
+        /// 한 프레임에 FixedUpdate가 세 번 돌면 <see cref="Tick"/>은 셋 다 같으므로,
+        /// 그 셋을 가르는 것은 이 값뿐이다.
+        /// </remarks>
+        public uint FixedTick { get; }
 
         public IReadOnlyList<SnapshotEntry> Entries { get; }
 
-        public Snapshot(uint tick, IReadOnlyList<SnapshotEntry> entries)
+        /// <remarks>
+        /// <b>만드는 곳은 <see cref="ContextSnapshotExtensions.Capture"/> 하나다.</b>
+        /// 밖에서 지어 낸 스냅샷은 어느 세계도 가리키지 않으므로 <see cref="Diff"/>의 결과가
+        /// 무엇을 뜻하는지 말할 수 없다.
+        /// </remarks>
+        internal Snapshot(uint tick, uint fixedTick, IReadOnlyList<SnapshotEntry> entries)
         {
             Tick = tick;
+            FixedTick = fixedTick;
             Entries = entries ?? throw new ArgumentNullException(nameof(entries));
         }
 
         public int Count => Entries.Count;
+
+        public override string ToString()
+            => $"Snapshot(Tick={Tick} FixedTick={FixedTick} {Count}줄)";
 
         /// <summary>두 스냅샷의 차이. 순서는 <paramref name="after"/> 기준이고, 사라진 것이 뒤에 붙는다.</summary>
         /// <remarks>

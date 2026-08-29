@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-08-30
+
+### Added
+- **`Snapshot.FixedTick`.** 두 레인의 스텝 번호를 다 담는다.
+  `Capture`는 어느 레인에서 불렸는지 알 수 없으므로, 하나만 담으면 다른 레인에서 뜬 스냅샷에
+  **엉뚱한 번호가 붙는다.** 한 프레임에 FixedUpdate가 세 번 돌면 `Tick`은 셋 다 같아서
+  그 셋을 가르는 것은 `FixedTick`뿐이다.
+- `Snapshot.ToString()`.
+
+### Changed
+- **`Snapshot`의 생성자가 `internal`이다.** 만드는 곳은 `Context.Capture()` 하나뿐이고,
+  밖에서 지어 낸 스냅샷은 어느 세계도 가리키지 않아 `Diff`의 결과가 무엇을 뜻하는지 말할 수 없다.
+  닫아 두면 이 시그니처가 다시는 파괴적 변경이 되지 않는다.
+
 ## [3.3.0] - 2026-08-30
 
 ### Added

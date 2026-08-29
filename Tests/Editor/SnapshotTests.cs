@@ -61,14 +61,38 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
-        public void 뜬_시점의_Tick이_남는다()
+        public void 두_레인의_스텝_번호가_따로_남는다()
         {
             var context = new Context();
             var systems = new Systems(context);
             systems.Tick();
             systems.Tick();
+            systems.FixedTick();
+            systems.FixedTick();
+            systems.FixedTick();
 
-            Assert.AreEqual(2u, context.Capture().Tick);
+            var snapshot = context.Capture();
+
+            Assert.AreEqual(2u, snapshot.Tick);
+            Assert.AreEqual(3u, snapshot.FixedTick);
+        }
+
+        [Test]
+        public void 한_프레임의_여러_FixedTick은_FixedTick으로만_갈린다()
+        {
+            // Tick은 그 프레임 내내 같은 값이라 물리 스텝을 가르지 못한다.
+            var context = new Context();
+            var systems = new Systems(context);
+            systems.Tick();
+
+            systems.FixedTick();
+            var first = context.Capture();
+            systems.FixedTick();
+            var second = context.Capture();
+
+            Assert.AreEqual(first.Tick, second.Tick, "같은 프레임이라 Update 레인 번호는 같다");
+            Assert.AreEqual(1u, first.FixedTick);
+            Assert.AreEqual(2u, second.FixedTick);
         }
 
         [Test]
@@ -268,6 +292,7 @@ namespace OVFL.ECS.Test
             Assert.AreEqual(ChangeKind.Modified, change.Kind);
             Assert.AreEqual(0u, before.Tick);
             Assert.AreEqual(1u, after.Tick);
+            Assert.AreEqual(0u, after.FixedTick, "물리 레인은 돌지 않았다");
         }
 
         class Bump : ITickSystem
