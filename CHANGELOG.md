@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2026-08-29
+
+### Changed
+- 주석과 README에서 과거 서술을 걷어냈다. 코드 동작은 그대로다.
+  **`3.0.0` 대신 이것을 쓰면 된다.**
+
 ## [3.0.0] - 2026-08-29
 
 **파괴적 변경이 있다.** 옮기는 법은 아래 「이주」와 `README.md`를 보라.
