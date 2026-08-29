@@ -221,7 +221,39 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
-        public void 배출_도중에_들어온_것은_다음_스텝으로_넘어간다()
+        public void 시스템이_도는_도중에는_적용되지_않는다()
+        {
+            // 인박스가 보장하는 것은 「언제」가 아니라 「어디서」다.
+            // 한 스텝의 모든 시스템은 같은 세계를 본다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var score = context.CreateEntity().AddComponent(new Score());
+            context.Flush();
+
+            var seen = new List<int>();
+            foreach (var phase in new[] { Phase.Inbox, Phase.Input, Phase.Simulation,
+                                          Phase.Reaction, Phase.View, Phase.Outbox })
+            {
+                systems.Add(phase, new Probe(ctx =>
+                {
+                    seen.Add(ctx.GetUniqueComponent<Score>().Value);
+                    // 도는 도중에 밖에서 들어온 것처럼 넣어 본다.
+                    ctx.Enqueue(c => c.GetUniqueComponent<Score>().Value = 42);
+                }));
+            }
+
+            systems.Tick();
+
+            CollectionAssert.AreEqual(new[] { 0, 0, 0, 0, 0, 0 }, seen,
+                "한 스텝 안에서는 여섯 Phase가 모두 같은 값을 본다");
+            Assert.AreEqual(0, score.Value, "이번 스텝에는 하나도 적용되지 않았다");
+
+            systems.Tick();
+            Assert.AreEqual(42, score.Value, "다음 배출에서 적용된다");
+        }
+
+        [Test]
+        public void 배출_도중에_들어온_것은_그_다음_배출로_넘어간다()
         {
             // 매 프레임 도착하는 RPC가 스텝을 영영 끝내지 못하게 만들면 안 된다.
             var context = new Context();
