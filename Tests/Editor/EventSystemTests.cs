@@ -288,5 +288,99 @@ namespace OVFL.ECS.Test
 
             Assert.Throws<ArgumentNullException>(() => context.RaiseEvent<DamageEvent>(null));
         }
+
+        // ───────────────────────────────────────────
+        // 경계를 넘겨 발행되는 것들
+        // ───────────────────────────────────────────
+
+        class OutboxRaiser : ITickSystem
+        {
+            public Context Context { get; set; }
+            public void Tick() => Context.RaiseEvent(new DamageEvent { Amount = 1 });
+        }
+
+        class InboxReader : ITickSystem
+        {
+            public Context Context { get; set; }
+            public readonly List<uint> SeenAtTick = new();
+            public void Tick() => Context.ProcessEvents<DamageEvent>((_, __) => SeenAtTick.Add(Context.Tick));
+        }
+
+        [Test]
+        public void 마지막_Phase에서_발행한_것은_다음_스텝에서_읽힌다()
+        {
+            // Outbox 뒤에는 경계가 없다. 발행 대기는 스텝 끝의 정리에 걸리지 않고
+            // 다음 스텝의 첫 경계에서 발행된다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var reader = new InboxReader();
+
+            systems.Add(Phase.Outbox, new OutboxRaiser());
+            systems.Add(Phase.Inbox, reader);
+
+            systems.Tick();
+            Assert.IsEmpty(reader.SeenAtTick, "1번 스텝에서는 아무도 못 읽는다");
+
+            systems.Tick();
+            Assert.AreEqual(new[] { 2u }, reader.SeenAtTick, "2번 스텝의 첫 Phase가 읽는다");
+        }
+
+        [Test]
+        public void 스텝_밖에서_발행해도_다음_스텝에서_읽힌다()
+        {
+            // MonoBehaviour나 콜백이 직접 RaiseEvent를 부르는 경우다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var reader = new InboxReader();
+            systems.Add(Phase.Inbox, reader);
+
+            context.RaiseEvent(new DamageEvent { Amount = 1 });
+            Assert.AreEqual(1, context.PendingEventCount);
+
+            systems.Tick();
+
+            Assert.AreEqual(new[] { 1u }, reader.SeenAtTick);
+            Assert.AreEqual(0, context.PendingEventCount);
+        }
+
+        [Test]
+        public void 읽는_도중에_다시_발행하면_다음_Phase에서_읽힌다()
+        {
+            // 되먹인 것은 다음 스텝이 아니라 이 스텝의 다음 Phase에서 산다.
+            // 그리고 스텝 끝의 정리에 걸려 사라지므로 다음 스텝으로 넘어가지 않는다.
+            var context = new Context();
+            var systems = new Systems(context);
+            int atSimulation = 0;
+            var reaction = new Reader();
+
+            systems.Add(Phase.Simulation, new Echo(() => atSimulation++));
+            systems.Add(Phase.Reaction, reaction);
+
+            context.RaiseEvent(new DamageEvent { Amount = 1 });
+            systems.Tick();
+
+            Assert.AreEqual(1, atSimulation);
+            Assert.AreEqual(2, reaction.Seen,
+                "원본은 아직 살아 있고 되먹인 것이 Reaction 경계에서 더해진다");
+
+            systems.Tick();
+
+            Assert.AreEqual(1, atSimulation, "스텝 끝에 정리돼 다음 스텝으로 안 넘어간다");
+            Assert.AreEqual(2, reaction.Seen);
+        }
+
+
+        class Echo : ITickSystem
+        {
+            private readonly Action _onSeen;
+            public Context Context { get; set; }
+            public Echo(Action onSeen) => _onSeen = onSeen;
+
+            public void Tick() => Context.ProcessEvents<DamageEvent>((_, __) =>
+            {
+                _onSeen();
+                Context.RaiseEvent(new DamageEvent { Amount = 1 });
+            });
+        }
     }
 }

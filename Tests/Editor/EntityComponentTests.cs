@@ -147,5 +147,44 @@ namespace OVFL.ECS.Test
 
             Assert.Throws<System.ArgumentNullException>(() => entity.AddComponent<Position>(null));
         }
+
+        // ───────────────────────────────────────────
+        // 키는 «넘긴 인스턴스의 실제 타입»이다
+        // ───────────────────────────────────────────
+
+        class Derived : Position { }
+
+        [Test]
+        public void GetComponent_기반_타입으로는_찾히지_않는다()
+        {
+            // 키가 GetType()이라 Derived로 넣으면 Position으로는 안 나온다.
+            // 「상속으로 컴포넌트를 묶는다」가 안 된다는 뜻이다.
+            var entity = new Entity(0, 1);
+            entity.AddComponent(new Derived());
+
+            Assert.IsTrue(entity.HasComponent<Derived>());
+            Assert.IsFalse(entity.HasComponent<Position>());
+            Assert.IsNull(entity.GetComponent<Position>());
+        }
+
+        [Test]
+        public void RemoveComponent_없는_것을_지워도_터지지_않는다()
+        {
+            var entity = new Entity(0, 1);
+            Assert.DoesNotThrow(() => entity.RemoveComponent<Position>());
+        }
+
+        [Test]
+        public void 같은_ID와_세대면_다른_Context에서_만든_것이어도_같다()
+        {
+            // 손잡이는 값이다. 「어느 Context의 것인가」는 손잡이가 모른다.
+            var a = new Context();
+            var b = new Context();
+            var fromA = a.CreateEntity();
+            var fromB = b.CreateEntity();
+
+            Assert.AreEqual(fromA, fromB);
+            Assert.AreEqual(fromA.GetHashCode(), fromB.GetHashCode());
+        }
     }
 }

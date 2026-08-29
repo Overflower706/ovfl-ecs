@@ -280,5 +280,101 @@ namespace OVFL.ECS.Test
             Assert.AreEqual(0u, _context.Tick);
             Assert.AreEqual(0u, _context.FixedTick);
         }
+
+        // ───────────────────────────────────────────
+        // 손잡이의 경계 — 두 번 지우기, 남의 것, null
+        // ───────────────────────────────────────────
+
+        [Test]
+        public void DestroyEntity_두_번_지우면_두_번째는_false다()
+        {
+            var entity = _context.CreateEntity();
+            _context.Flush();
+
+            Assert.IsTrue(_context.DestroyEntity(entity));
+            Assert.IsFalse(_context.DestroyEntity(entity), "세대가 이미 올라가서 낡은 손잡이다");
+        }
+
+        [Test]
+        public void DestroyEntity_다른_Context의_엔티티는_false다()
+        {
+            // 손잡이는 값일 뿐이라 어느 Context의 것인지 자기가 모른다.
+            // 판단은 세대를 가진 Context가 한다.
+            var other = new Context();
+            var entity = other.CreateEntity();
+            other.Flush();
+
+            Assert.IsFalse(_context.DestroyEntity(entity));
+            Assert.IsTrue(other.IsAlive(entity), "남의 Context가 지우지 못한다");
+        }
+
+        [Test]
+        public void IsAlive_null이면_false다()
+        {
+            Assert.IsFalse(_context.IsAlive(null));
+        }
+
+        [Test]
+        public void GetEntity_음수_ID면_null이다()
+        {
+            Assert.IsNull(_context.GetEntity(-1));
+            Assert.IsNull(_context.GetEntity(Entity.Null.ID));
+        }
+
+        [Test]
+        public void Flush_두_번_불러도_결과가_같다()
+        {
+            _context.CreateEntity();
+            _context.Flush();
+            _context.Flush();
+
+            Assert.AreEqual(1, _context.EntityCount);
+            Assert.AreEqual(1, _context.AllEntities.Count());
+        }
+
+        [Test]
+        public void PendingCount는_등장을_기다리는_수다()
+        {
+            _context.CreateEntity();
+            _context.CreateEntity();
+
+            Assert.AreEqual(2, _context.PendingCount);
+            Assert.AreEqual(0, _context.AllEntities.Count(), "아직 쿼리에 안 잡힌다");
+
+            _context.Flush();
+            Assert.AreEqual(0, _context.PendingCount);
+            Assert.AreEqual(2, _context.AllEntities.Count());
+        }
+
+        [Test]
+        public void DestroyAllEntities_등장_전인_것도_함께_지운다()
+        {
+            _context.CreateEntity();
+            _context.Flush();
+            _context.CreateEntity(); // 아직 pending
+
+            _context.DestroyAllEntities();
+            _context.Flush();
+
+            Assert.AreEqual(0, _context.EntityCount);
+            Assert.AreEqual(0, _context.PendingCount);
+        }
+
+        [Test]
+        public void AllEntities는_지연_열거라_도중에_Flush하면_터진다()
+        {
+            // 이것이 GetEntitiesWith가 목록을 떠서 주는 이유다.
+            _context.CreateEntity();
+            _context.Flush();
+
+            Assert.Throws<System.InvalidOperationException>(() =>
+            {
+                foreach (var _ in _context.AllEntities)
+                {
+                    _context.CreateEntity();
+                    _context.Flush();
+                }
+            });
+        }
     }
 }

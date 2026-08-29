@@ -273,5 +273,32 @@ namespace OVFL.ECS.Test
             Assert.IsNull(new Context().GetEntityByID(999));
         }
 #pragma warning restore 618
+
+        [Test]
+        public void GetEntitiesWith_돌려받은_목록을_고쳐도_Context는_그대로다()
+        {
+            // 호출마다 새 List를 만들어 주기 때문이다. 풀에서 빌려주는 것이 아니다.
+            var context = new Context();
+            context.CreateEntity().AddComponent(new TagComponent());
+            context.Flush();
+
+            var first = context.GetEntitiesWith<TagComponent>();
+            first.Clear();
+
+            Assert.AreEqual(1, context.GetEntitiesWith<TagComponent>().Count);
+        }
+
+        [Test]
+        public void GetEntitiesWith_삭제_예약된_것은_빠진다()
+        {
+            var context = new Context();
+            var entity = context.CreateEntity();
+            entity.AddComponent(new TagComponent());
+            context.Flush();
+
+            context.DestroyEntity(entity);
+
+            Assert.IsEmpty(context.GetEntitiesWith<TagComponent>(), "쿼리에서는 즉시 사라진다");
+        }
     }
 }

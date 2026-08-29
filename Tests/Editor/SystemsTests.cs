@@ -486,5 +486,114 @@ namespace OVFL.ECS.Test
         {
             Assert.Throws<ArgumentNullException>(() => new Context().Enqueue(null));
         }
+
+        // ───────────────────────────────────────────
+        // 등록의 성질
+        // ───────────────────────────────────────────
+
+        class MultiRole : ISetupSystem, ITickSystem, IFixedTickSystem, ICleanupSystem,
+                          IFixedCleanupSystem, ITeardownSystem
+        {
+            public Context Context { get; set; }
+            public int SetupCount, TickCount, FixedTickCount, CleanupCount, FixedCleanupCount, TeardownCount;
+            public void Setup() => SetupCount++;
+            public void Tick() => TickCount++;
+            public void FixedTick() => FixedTickCount++;
+            public void Cleanup() => CleanupCount++;
+            public void FixedCleanup() => FixedCleanupCount++;
+            public void Teardown() => TeardownCount++;
+        }
+
+        [Test]
+        public void 한_시스템이_여러_인터페이스를_구현하면_전부에_들어간다()
+        {
+            var systems = new Systems(new Context());
+            var system = new MultiRole();
+            systems.Add(Phase.Simulation, system);
+
+            systems.Setup();
+            systems.Tick();
+            systems.Cleanup();
+            systems.FixedTick();
+            systems.FixedCleanup();
+            Assert.AreEqual(1, systems.Count, "여럿을 구현해도 시스템은 하나다");
+
+            systems.Teardown();
+
+            Assert.AreEqual(1, system.SetupCount);
+            Assert.AreEqual(1, system.TickCount);
+            Assert.AreEqual(1, system.FixedTickCount);
+            Assert.AreEqual(1, system.CleanupCount);
+            Assert.AreEqual(1, system.FixedCleanupCount);
+            Assert.AreEqual(1, system.TeardownCount);
+        }
+
+        [Test]
+        public void Add는_자기를_돌려줘_사슬로_엮인다()
+        {
+            var systems = new Systems(new Context());
+            var returned = systems.Add(Phase.Input, new MultiRole()).Add(Phase.View, new MultiRole());
+
+            Assert.AreSame(systems, returned);
+            Assert.AreEqual(2, systems.Count);
+        }
+
+        [Test]
+        public void 같은_시스템을_두_번_등록하면_두_번_돈다()
+        {
+            // 막지 않는다. 막으면 「같은 일을 두 Phase에서」가 불가능해진다.
+            var systems = new Systems(new Context());
+            var system = new MultiRole();
+
+            systems.Add(Phase.Input, system);
+            systems.Add(Phase.View, system);
+            systems.Tick();
+
+            Assert.AreEqual(2, system.TickCount);
+        }
+
+        [Test]
+        public void Teardown_뒤에_돌려도_아무것도_안_돈다()
+        {
+            var systems = new Systems(new Context());
+            var system = new MultiRole();
+            systems.Add(Phase.Simulation, system);
+
+            systems.Teardown();
+            systems.Tick();
+            systems.FixedTick();
+            systems.Cleanup();
+
+            Assert.AreEqual(0, system.TickCount);
+            Assert.AreEqual(0, system.FixedTickCount);
+            Assert.AreEqual(0, system.CleanupCount);
+            Assert.AreEqual(0, systems.Count);
+        }
+
+        [Test]
+        public void Setup이_던져도_그_전에_만든_엔티티는_반영된다()
+        {
+            // finally의 Flush다. 안 그러면 첫 Tick까지 그 엔티티가 안 보인다.
+            var context = new Context();
+            var systems = new Systems(context);
+            systems.Add(Phase.Simulation, new SpawnThenThrow());
+
+            Systems.RethrowOnSystemException = false;
+            LogAssert.ignoreFailingMessages = true;
+            systems.Setup();
+            LogAssert.ignoreFailingMessages = false;
+
+            Assert.AreEqual(1, context.GetEntitiesWith<SpawnedMarker>().Count);
+        }
+
+        class SpawnThenThrow : ISetupSystem
+        {
+            public Context Context { get; set; }
+            public void Setup()
+            {
+                Context.CreateEntity().AddComponent(new SpawnedMarker());
+                throw new Exception("Setup 예외");
+            }
+        }
     }
 }
