@@ -106,9 +106,10 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
-        public void EntityNull_IsActive_ShouldBeFalse()
+        public void EntityNull_어떤_Context에서도_살아있지_않다()
         {
-            Assert.IsFalse(Entity.Null.IsActive);
+            Assert.IsTrue(Entity.Null.IsNull);
+            Assert.IsFalse(new Context().IsAlive(Entity.Null));
         }
 
         [Test]

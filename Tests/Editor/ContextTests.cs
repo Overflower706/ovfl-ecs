@@ -33,7 +33,7 @@ namespace OVFL.ECS.Test
 
             Assert.IsTrue(result);
             Assert.IsFalse(_context.IsAlive(entity));
-            Assert.IsFalse(entity.IsActive); // Entity 객체 내부 상태도 변경
+            Assert.IsFalse(_context.DestroyEntity(entity), "두 번 지울 수 없다");
         }
 
         [Test]
@@ -245,6 +245,34 @@ namespace OVFL.ECS.Test
             Assert.IsNull(_context.GetEntity(id), "FlushDestroyQueue 전에도 이미 없다");
             Assert.IsFalse(_context.IsAlive(entity));
         }
+
+        [Test]
+        public void 살아있음은_Context가_판단한다()
+        {
+            // Entity는 자기가 살아 있는지 모른다. 세대 하나가 판별자다.
+            var entity = _context.CreateEntity();
+            var other = new Context();
+
+            Assert.IsTrue(_context.IsAlive(entity));
+            Assert.IsFalse(other.IsAlive(entity), "다른 Context에서는 살아 있지 않다");
+        }
+
+        [Test]
+        public void 지운_뒤에도_손잡이로_컴포넌트는_읽힌다()
+        {
+            // 죽는 것은 Context와의 연결이다. 객체 자체는 GC가 가져갈 때까지 남는다.
+            var entity = _context.CreateEntity();
+            entity.AddComponent(new Marker());
+            _context.Flush();
+
+            _context.DestroyEntity(entity);
+
+            Assert.IsFalse(_context.IsAlive(entity));
+            Assert.IsNotNull(entity.GetComponent<Marker>(), "손잡이를 들고 있으면 읽을 수는 있다");
+            Assert.IsNull(_context.GetEntity(entity.ID), "Context를 통해서는 못 찾는다");
+        }
+
+        class Marker : IComponent { }
 
         [Test]
         public void Tick_카운터는_Systems가_돌기_전에는_0이다()

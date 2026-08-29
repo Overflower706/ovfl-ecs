@@ -12,10 +12,10 @@ Unity용 ECS. **구조를 위한 것**입니다.
 - 설치: `Packages/manifest.json`에 아래 한 줄. **버전은 태그로 고정하세요.**
 
 ```json
-"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.0.1"
+"com.ovfl.ecs": "https://github.com/Overflower706/ovfl-ecs.git#3.1.0"
 ```
 
-> **`3.0.0`부터 `com.ovfl.ecs.extensions`는 이 패키지에 흡수됐습니다.**
+> **`com.ovfl.ecs.extensions`는 이 패키지에 흡수됐습니다.**
 > manifest에 그 줄이 남아 있으면 타입 중복으로 컴파일이 깨집니다. 지우세요.
 
 ---
@@ -57,7 +57,7 @@ systems.Tick();    // 매 프레임
 Tick++
 Phase마다:
     ── 경계 ──  인박스 배출(첫 Phase에서만) · 이벤트 발행 · 생성/삭제 반영
-    그 Phase의 시스템들을 등록 순서로 실행
+    그 Phase의 시스템들을 등록 된 순서로 실행
 마지막:      반영 · 이번 스텝 이벤트 정리 · 반영
 ```
 
@@ -78,9 +78,11 @@ Phase마다:
 | `View` | 화면·사운드에 반영합니다. **여기서 상태를 바꾸지 않습니다** |
 | `Outbox` | 밖으로 내보냅니다. RPC 송신·저장 |
 
-**같은 Phase 안의 순서는 여전히 등록 순서입니다.** Phase가 없애는 것은
-「멀리 떨어진 두 시스템의 순서가 우연히 정해지는 것」이지 순서 자체가 아닙니다.
+**같은 Phase 안의 순서는 등록 순서입니다.** Phase는 큰 덩어리의 순서를 정하고,
+그 안에서는 적은 순서대로 돕니다.
 한 Phase 안에서 A가 B보다 먼저여야 한다면, 그건 **둘을 다른 Phase로 가르라는 신호**입니다.
+
+phase 개념이 '순서대로 동작한다'보다 나은지는 계속 고민이 되네...
 
 ---
 
@@ -147,7 +149,7 @@ ECS 바깥에 상태가 생기고, 그 상태는 Phase 순서 밖에서 바뀝�
 
 **이 절이 이 패키지에서 제일 중요합니다.** 여기를 틀리면 재현 안 되는 버그가 생깁니다.
 
-### 문제: RPC는 우리가 부르는 것이 아니다
+### 문제: RPC는 밖에서 아무 때나 불린다
 
 ```csharp
 [Rpc(SendTo.ClientsAndHost)]

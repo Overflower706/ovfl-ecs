@@ -3,18 +3,27 @@ using System.Collections.Generic;
 
 namespace OVFL.ECS
 {
+    /// <summary>
+    /// 컴포넌트를 담는 그릇. <b>이 객체는 자기가 살아 있는지 모릅니다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <c>ID</c>와 <c>Generation</c>은 <b>손잡이</b>일 뿐이고, 그 손잡이가 아직 유효한지는
+    /// <see cref="Context.IsAlive"/>가 답합니다. 엔티티에 「살아 있음」 플래그를 들려 두면
+    /// Context가 아는 것과 엔티티가 아는 것이 <b>어긋날 수 있는 두 자리</b>가 생깁니다.
+    ///
+    /// <c>Generation</c>이 그 역할을 이미 합니다. ID는 재사용되지만 세대는 올라가므로,
+    /// 재사용된 ID를 들고 있는 낡은 손잡이도 구분됩니다.
+    /// </remarks>
     public class Entity : IEquatable<Entity>
     {
         public readonly int ID;
         public readonly int Generation;
-        public bool IsActive { get; internal set; }
         private readonly Dictionary<Type, IComponent> _components = new();
 
         public Entity(int id, int generation)
         {
             ID = id;
             Generation = generation;
-            IsActive = true;
         }
 
         /// <summary>
@@ -62,7 +71,8 @@ namespace OVFL.ECS
             _components.Remove(typeof(T));
         }
 
-        public static readonly Entity Null = new Entity(-1, 0) { IsActive = false };
+        /// <summary>「없음」을 뜻하는 자리표. ID가 음수라 어떤 Context에서도 살아 있지 않습니다.</summary>
+        public static readonly Entity Null = new Entity(-1, 0);
         public bool IsNull => ID < 0;
         public bool Equals(Entity other)
         {

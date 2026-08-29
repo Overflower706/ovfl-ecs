@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-08-29
+
+### Removed (Breaking)
+- **`Entity.IsActive`** — 살아 있는지는 `Context.IsAlive(entity)`가 답한다.
+  엔티티에 플래그를 들려 두면 **Context가 아는 것과 엔티티가 아는 것이 어긋날 수 있는
+  두 자리**가 생긴다. 삭제 예약 직후가 그랬다 — 플래그는 내려갔는데 세대는 그대로여서,
+  조회하는 곳마다 둘을 함께 확인해야 했다.
+
+### Changed
+- **세대를 `DestroyEntity` 시점에 올린다.** 검사 하나가
+  쿼리에서 빼는 것 · 두 번 지우는 것을 막는 것 · 낡은 손잡이를 걸러내는 것을 함께 한다.
+  세대는 ID가 재사용된 뒤에도 낡은 손잡이를 구분하므로, 플래그가 하던 일을 전부 덮는다.
+- `Entity`에 가변 상태가 없다. `ID` · `Generation` · 컴포넌트뿐이다.
+
 ## [3.0.1] - 2026-08-29
 
 ### Changed

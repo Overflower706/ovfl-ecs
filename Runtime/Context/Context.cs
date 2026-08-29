@@ -40,7 +40,7 @@ namespace OVFL.ECS
             get
             {
                 foreach (var e in _entities)
-                    if (e.IsActive) yield return e;
+                    if (_generations[e.ID] == e.Generation) yield return e;
             }
         }
 
@@ -111,20 +111,20 @@ namespace OVFL.ECS
         /// </summary>
         public bool DestroyEntity(Entity entity)
         {
-            if (entity == null || !entity.IsActive) return false;
+            if (!IsAlive(entity)) return false;
 
-            // 아직 등장하지 않은 것은 등장 자체를 취소한다.
+            // 세대를 여기서 올린다. 이 한 번으로 손잡이가 죽는다 —
+            // 쿼리에서 빠지는 것도, 두 번 지우는 것을 막는 것도 같은 검사다.
+            _generations[entity.ID]++;
+
+            // 아직 등장하지 않은 것은 등장 자체를 취소한다. 저장소에 없으므로
+            // 뺄 것도 없고, ID는 바로 돌려준다.
             if (_pendingAdd.Remove(entity))
             {
-                entity.IsActive = false;
-                _generations[entity.ID]++;
                 _availableIDs.Enqueue(entity.ID);
                 return true;
             }
 
-            if (!IsAlive(entity)) return false;
-
-            entity.IsActive = false;
             _pendingDestroy.Add(entity);
             return true;
         }
@@ -171,7 +171,7 @@ namespace OVFL.ECS
                 _entities.RemoveAt(lastIndex);
                 _entityIndices[idToRemove] = -1;
 
-                _generations[idToRemove]++;
+                // 세대는 DestroyEntity에서 이미 올렸다. ID만 돌려준다.
                 _availableIDs.Enqueue(idToRemove);
             }
 
@@ -189,11 +189,8 @@ namespace OVFL.ECS
             if (index >= 0)
             {
                 Entity entity = _entities[index];
-                if (entity.Generation != _generations[id]) return null;
-
-                // 삭제 예약된 것은 AllEntities에서도 빠져 있다. 여기만 다르게 답하면
-                // 「쿼리에는 없는데 GetEntity로는 잡히는」 엔티티가 생긴다.
-                return entity.IsActive ? entity : null;
+                // 삭제 예약된 것은 세대가 이미 올라가 있어 여기서 걸러진다.
+                return entity.Generation == _generations[id] ? entity : null;
             }
 
             // 아직 등장 전. 보통 몇 개뿐이라 훑는다.
@@ -212,7 +209,7 @@ namespace OVFL.ECS
         /// </remarks>
         public bool IsAlive(Entity entity)
         {
-            if (entity == null || !entity.IsActive) return false;
+            if (entity == null) return false;
             if (entity.ID < 0 || entity.ID >= _generations.Count) return false;
             return _generations[entity.ID] == entity.Generation;
         }
@@ -230,8 +227,7 @@ namespace OVFL.ECS
                 DestroyEntity(_pendingAdd[i]);
 
             foreach (var entity in _entities)
-                if (entity.IsActive)
-                    DestroyEntity(entity);
+                DestroyEntity(entity);
         }
 
         // ── 인박스: 밖에서 들어온 변경 ────────────────────────────────────
@@ -300,9 +296,8 @@ namespace OVFL.ECS
         {
             foreach (var entity in _entities)
             {
-                if (!entity.IsActive) continue;
                 if (entity.TryGetComponent<EventMetadataComponent>(out var meta) && meta.IsFixed == isFixed)
-                    DestroyEntity(entity);
+                    DestroyEntity(entity); // 이미 죽은 것은 여기서 false를 돌려주고 지나간다
             }
         }
     }
