@@ -274,6 +274,49 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
+        public void 인박스에서_발행한_이벤트는_그_스텝에서_읽힌다()
+        {
+            // 다리가 RPC를 이벤트로 바꿔 넣는 경로다. 경계가
+            // 「배출 → 발행 → 반영」 순서라 Phase.Inbox의 시스템부터 볼 수 있다.
+            var context = new Context();
+            var systems = new Systems(context);
+            context.Enqueue(ctx => ctx.RaiseEvent(new Pinged()));
+
+            int seenAtInbox = 0, seenAtReaction = 0;
+            systems.Add(Phase.Inbox, new Probe(ctx =>
+                ctx.ProcessEvents<Pinged>((_, __) => seenAtInbox++)));
+            systems.Add(Phase.Reaction, new Probe(ctx =>
+                ctx.ProcessEvents<Pinged>((_, __) => seenAtReaction++)));
+
+            systems.Tick();
+
+            Assert.AreEqual(1, seenAtInbox, "배출된 그 경계에서 이미 발행된다");
+            Assert.AreEqual(1, seenAtReaction);
+        }
+
+        class Pinged : EventComponent { }
+
+        [Test]
+        public void 인박스는_배출_시점의_세계에서_실행된다()
+        {
+            // 다리가 값을 받아 Enqueue한 뒤, 배출 전에 그 엔티티가 사라질 수 있다.
+            // 넣을 때가 아니라 꺼낼 때의 세계라서, 넣은 쪽이 IsAlive를 확인해야 한다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var entity = context.CreateEntity();
+            entity.AddComponent(new Score());
+            context.Flush();
+
+            bool aliveAtDrain = true;
+            context.Enqueue(ctx => aliveAtDrain = ctx.IsAlive(entity));
+            context.DestroyEntity(entity);
+
+            systems.Tick();
+
+            Assert.IsFalse(aliveAtDrain, "넣을 때는 살아 있었지만 꺼낼 때는 아니다");
+        }
+
+        [Test]
         public void null을_넣으면_던진다()
         {
             var context = new Context();
