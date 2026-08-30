@@ -259,7 +259,9 @@ namespace OVFL.ECS
             finally { context?.Flush(); }
         }
 
-        /// <summary>모든 Teardown System을 실행합니다. 끝나면 시스템 목록을 비웁니다.</summary>
+        /// <summary>
+        /// 모든 Teardown System을 실행합니다. 끝나면 <b>시스템 목록과 인박스를 비웁니다.</b>
+        /// </summary>
         public void Teardown()
         {
             try
@@ -272,6 +274,9 @@ namespace OVFL.ECS
             finally
             {
                 context?.Flush();
+                // 배출을 기다리던 것은 갈 곳이 없어졌다. 남겨 두면 다시 Setup 했을 때
+                // 죽은 세계로 향하던 변경이 새 세계에 적용된다.
+                context?.ClearInbox();
                 RemoveAllSystems();
             }
         }

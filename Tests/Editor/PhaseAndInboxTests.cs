@@ -212,6 +212,30 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
+        public void Teardown은_배출을_기다리던_것을_버린다()
+        {
+            var context = new Context();
+            var systems = new Systems(context);
+            var scoreEntity = context.CreateEntity();
+            var score = scoreEntity.AddComponent(new Score());
+            context.Flush();
+
+            context.Enqueue(ctx => Write(ctx, 99));
+            Assert.AreEqual(1, context.InboxCount);
+
+            systems.Teardown();
+
+            Assert.AreEqual(0, context.InboxCount, "Teardown은 정리다");
+
+            // 같은 Context로 다시 세워도 죽은 세계로 향하던 변경이 살아나지 않는다.
+            var revived = new Systems(context);
+            revived.Add(Phase.Simulation, new Probe(_ => { }));
+            revived.Tick();
+
+            Assert.AreEqual(0, score.Value);
+        }
+
+        [Test]
         public void Inbox_Phase의_시스템은_배출된_결과를_본다()
         {
             var context = new Context();

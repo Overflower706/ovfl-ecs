@@ -271,6 +271,19 @@ namespace OVFL.ECS
         /// <summary>배출을 기다리는 인박스 항목 수.</summary>
         public int InboxCount => _inbox.Count;
 
+        /// <summary>
+        /// 배출을 기다리던 것을 전부 버린다. <see cref="Systems.Teardown"/>이 부른다.
+        /// </summary>
+        /// <remarks>
+        /// <b>Teardown은 정리다.</b> 남겨 두면 같은 Context를 다시 <see cref="Systems.Setup"/>했을 때
+        /// <b>죽은 세계로 향하던 변경이 새 세계에 적용된다.</b>
+        ///
+        /// 버려도 되는 이유는, 인박스에 남은 것이 전부 <b>밖에서 온 사실</b>이기 때문이다.
+        /// 그 사실은 밖에 그대로 있으므로 <b>새 Context가 다시 물으면 된다.</b>
+        /// 안에서 만든 값이었다면 버리는 것이 손실이겠지만, 인박스에는 그런 것이 들어오지 않는다.
+        /// </remarks>
+        internal void ClearInbox() => _inbox.Clear();
+
         internal void DrainInbox()
         {
             // 배출 도중에 또 들어오는 것은 그 다음 배출로 넘긴다.
