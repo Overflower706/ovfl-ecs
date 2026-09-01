@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.0] - 2026-09-01
+
+### Added
+- **`Entity.ComponentCount`.** 그 엔티티에 붙은 컴포넌트 수.
+
+  `Components`(열거)는 그대로 `internal`이다. 여는 기준은 **관측이냐 순회냐**다 —
+  훑을 손잡이를 주면 「엔티티가 든 것을 훑어 무언가 한다」가 쉬워지고 그것이
+  시스템이 컴포넌트 타입을 정해 놓고 도는 모양을 흐리지만, 개수는 그 손잡이가 아니다.
+
+  세계가 얼마나 무거운지를 밖에서 볼 방법이 없으면 개발 도구가 대신
+  **리플렉션으로 `_components`를 뚫는다.** 닫아 두는 값보다 그쪽 비용이 크다.
+
 ## [3.5.0] - 2026-08-30
 
 ### Changed

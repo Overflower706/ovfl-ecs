@@ -71,6 +71,17 @@ namespace OVFL.ECS
             _components.Remove(typeof(T));
         }
 
+        /// <summary>부착된 컴포넌트 수.</summary>
+        /// <remarks>
+        /// <b>세는 것은 열어 두고 훑는 것은 닫아 둡니다.</b> <see cref="Components"/>를 밖으로 열면
+        /// 「엔티티가 든 것을 훑어 무언가 한다」가 쉬워지지만, 개수는 그 손잡이를 주지 않습니다 —
+        /// <b>관측일 뿐 순회가 아니라서</b> 시스템이 컴포넌트 타입을 정해 놓고 도는 모양을 흐리지 않습니다.
+        ///
+        /// 세계가 얼마나 무거운지를 밖에서 볼 방법이 없으면, 개발 도구가 대신
+        /// <b>리플렉션으로 내부 저장소를 뚫습니다.</b> 그쪽이 더 나쁩니다.
+        /// </remarks>
+        public int ComponentCount => _components.Count;
+
         /// <summary>부착된 컴포넌트를 (타입, 인스턴스)로 열거합니다.</summary>
         /// <remarks>
         /// <b>패키지 안에서만 씁니다.</b> 밖으로 열면 「엔티티가 든 것을 훑어 무언가 한다」가 쉬워지고,

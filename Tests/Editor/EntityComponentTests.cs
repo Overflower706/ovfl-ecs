@@ -175,6 +175,44 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
+        public void ComponentCount_붙인_만큼_센다()
+        {
+            var entity = new Entity(0, 1);
+            Assert.AreEqual(0, entity.ComponentCount);
+
+            entity.AddComponent<Position>();
+            Assert.AreEqual(1, entity.ComponentCount);
+
+            entity.AddComponent<Velocity>();
+            Assert.AreEqual(2, entity.ComponentCount);
+
+            entity.RemoveComponent<Position>();
+            Assert.AreEqual(1, entity.ComponentCount);
+        }
+
+        [Test]
+        public void ComponentCount_같은_타입을_두_번_붙여도_하나다()
+        {
+            // 키가 타입이라 덮어쓴다. 개수도 그것을 따라야 «HasComponent가 참인 타입의 수»와 어긋나지 않는다.
+            var entity = new Entity(0, 1);
+            entity.AddComponent(new Position());
+            entity.AddComponent(new Position());
+
+            Assert.AreEqual(1, entity.ComponentCount);
+        }
+
+        [Test]
+        public void ComponentCount_없는_것을_지워도_줄지_않는다()
+        {
+            var entity = new Entity(0, 1);
+            entity.AddComponent<Position>();
+
+            entity.RemoveComponent<Velocity>();
+
+            Assert.AreEqual(1, entity.ComponentCount);
+        }
+
+        [Test]
         public void 같은_ID와_세대면_다른_Context에서_만든_것이어도_같다()
         {
             // 손잡이는 값이다. 「어느 Context의 것인가」는 손잡이가 모른다.
