@@ -167,12 +167,22 @@ namespace OVFL.ECS
         // ── 실행 ──────────────────────────────────────────────────────────
 
         /// <summary>모든 Setup System을 실행합니다 (초기화 시 한 번).</summary>
+        /// <remarks>
+        /// <b>시스템 하나마다 경계가 있습니다</b> — 앞 시스템이 만든 엔티티를 뒤 시스템이
+        /// 쿼리로 찾습니다. 초기화는 「세계를 세우는 쪽」과 「세워진 것을 읽는 쪽」으로 갈리는데,
+        /// 끝에서 한 번만 반영하면 읽는 쪽이 빈 세계를 봅니다 — 예외도 경고도 없이 null이 흘러갑니다.
+        ///
+        /// 순서는 등록 순서입니다. <see cref="Phase"/>는 스텝을 가르는 축이라 여기에 걸리지 않습니다.
+        /// </remarks>
         public void Setup()
         {
             try
             {
                 foreach (var system in setupSystems)
+                {
                     Run(() => system.Setup());
+                    context?.Flush();
+                }
             }
             finally { context?.Flush(); }
         }

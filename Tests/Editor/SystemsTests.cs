@@ -482,6 +482,29 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
+        public void 앞_시스템이_Setup에서_만든_엔티티를_뒤_시스템이_Setup에서_본다()
+        {
+            // 초기화는 세우는 쪽과 읽는 쪽으로 갈린다. 시스템마다 반영하지 않으면
+            // 읽는 쪽이 빈 세계를 보고, 예외도 경고도 없이 null이 흘러간다.
+            var context = new Context();
+            var systems = new Systems(context);
+            var reader = new CountOnSetup();
+            systems.Add(Phase.Simulation, new SpawnOnSetup());
+            systems.Add(Phase.Simulation, reader);
+
+            systems.Setup();
+
+            Assert.AreEqual(1, reader.Seen);
+        }
+
+        class CountOnSetup : ISetupSystem
+        {
+            public Context Context { get; set; }
+            public int Seen = -1;
+            public void Setup() => Seen = Context.GetEntitiesWith<SpawnedMarker>().Count;
+        }
+
+        [Test]
         public void Enqueue에_null을_넣으면_던진다()
         {
             Assert.Throws<ArgumentNullException>(() => new Context().Enqueue(null));

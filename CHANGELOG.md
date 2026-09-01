@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.1] - 2026-09-02
+
+### Fixed
+- **`Systems.Setup()`이 시스템마다 반영한다.** 앞 시스템이 `Setup`에서 만든 엔티티를
+  뒤 시스템이 같은 `Setup`에서 쿼리로 찾는다.
+
+  초기화는 「세계를 세우는 쪽」과 「세워진 것을 읽는 쪽」으로 갈린다.
+  끝에서 한 번만 `Flush`하면 읽는 쪽이 빈 세계를 보는데, **예외도 경고도 나지 않는다** —
+  `TryGetUniqueComponent`가 조용히 false를 주고 null이 흘러가다 엉뚱한 곳에서 터진다.
+
+  순서는 등록 순서다. `Phase`는 스텝을 가르는 축이라 `Setup`에 걸리지 않는다.
+
 ## [3.6.0] - 2026-09-01
 
 ### Added
