@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine.TestTools.Constraints;
 using Is = UnityEngine.TestTools.Constraints.Is;
@@ -66,6 +67,19 @@ namespace OVFL.ECS.Test
 
             Assert.That(() => context.ProcessEvents(onPing), Is.Not.AllocatingGCMemory());
             Assert.AreEqual(2, seen);
+        }
+
+        [Test]
+        public void GetEntitiesWith에_목록을_넘기면_할당하지_않는다()
+        {
+            var context = new Context();
+            for (int i = 0; i < 8; i++) context.CreateEntity().AddComponent(new Marker());
+            context.Flush();
+            var results = new List<Entity>();
+            context.GetEntitiesWith<Marker>(results); // 목록이 처음 자랄 때의 할당은 빼고 본다
+
+            Assert.That(() => { context.GetEntitiesWith<Marker>(results); }, Is.Not.AllocatingGCMemory());
+            Assert.AreEqual(8, results.Count);
         }
 
         [Test]

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.0] - 2026-10-01
+
+### Added
+- **`GetEntitiesWith<T>(List<Entity> results)`.** 넘긴 목록을 비우고 채워 그것을 돌려준다.
+  매 프레임 묻는 시스템이 목록을 갖고 있으면 부를 때마다 새 목록이 생기지 않는다 —
+  Unity의 `GetComponents(List<T>)`와 같은 꼴이다.
+
+  원래 것이 공용 목록을 빌려주지 않는 이유는 그대로다. 「확정된 목록」이라 받은 쪽이 들고 있어도 되는데,
+  빌려준 목록이면 다음 호출이 그것을 덮어쓴다. 목록의 주인을 부르는 쪽으로 옮기면 그 약속이 깨지지 않는다.
+
+### Changed
+- 인자 없는 `GetEntitiesWith<T>()`도 `yield` 열거자 없이 돈다. 새 목록 하나만 만든다.
+
 ## [3.6.2] - 2026-10-01
 
 ### Fixed

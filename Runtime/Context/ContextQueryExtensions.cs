@@ -16,14 +16,27 @@ namespace OVFL.ECS
         /// 지연이면 그 자리에서 컬렉션 수정 예외가 납니다.
         /// </remarks>
         public static List<Entity> GetEntitiesWith<T>(this Context context) where T : class, IComponent
+            => context.GetEntitiesWith<T>(new List<Entity>());
+
+        /// <summary>
+        /// T 컴포넌트를 가진 모든 Entity로 <paramref name="results"/>를 <b>비우고 채워</b> 그것을 돌려줍니다.
+        /// </summary>
+        /// <remarks>
+        /// 매 프레임 묻는 자리는 이것을 씁니다 — 목록을 시스템이 갖고 있으면 부를 때마다 새 목록이 생기지 않습니다
+        /// (Unity의 <c>GetComponents(List&lt;T&gt;)</c>와 같은 꼴). 확정된 목록이라는 점은 같습니다.
+        /// <b>목록 하나를 두 곳에서 같이 쓰지 않습니다</b> — 돌던 목록을 안쪽 호출이 다시 채우면 바깥 순회가 엉킵니다.
+        /// </remarks>
+        public static List<Entity> GetEntitiesWith<T>(this Context context, List<Entity> results) where T : class, IComponent
         {
-            var result = new List<Entity>();
-            foreach (var entity in context.AllEntities)
+            results.Clear();
+            var dense = context.Dense;
+            for (int i = 0; i < dense.Count; i++)
             {
-                if (entity.HasComponent<T>())
-                    result.Add(entity);
+                var entity = dense[i];
+                if (context.IsListed(entity) && entity.HasComponent<T>())
+                    results.Add(entity);
             }
-            return result;
+            return results;
         }
 
         /// <summary>

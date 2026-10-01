@@ -34,6 +34,38 @@ namespace OVFL.ECS.Test
         }
 
         [Test]
+        public void GetEntitiesWith_목록을_받으면_비우고_채워_그것을_돌려준다()
+        {
+            var context = new Context();
+            var e1 = context.CreateEntity(); e1.AddComponent<TagComponent>();
+            context.CreateEntity();
+            var e3 = context.CreateEntity(); e3.AddComponent<TagComponent>();
+            context.Flush();
+            var stale = context.CreateEntity(); // 지난 내용 — 비워져야 한다
+            var results = new List<Entity> { stale };
+
+            var returned = context.GetEntitiesWith<TagComponent>(results);
+
+            Assert.AreSame(results, returned);
+            CollectionAssert.AreEquivalent(new[] { e1, e3 }, results);
+        }
+
+        [Test]
+        public void GetEntitiesWith_목록을_받아도_반영되지_않은_것과_삭제_예약된_것은_뺀다()
+        {
+            var context = new Context();
+            var kept = context.CreateEntity(); kept.AddComponent<TagComponent>();
+            var doomed = context.CreateEntity(); doomed.AddComponent<TagComponent>();
+            context.Flush();
+            context.DestroyEntity(doomed);
+            var pending = context.CreateEntity(); pending.AddComponent<TagComponent>();
+
+            var results = context.GetEntitiesWith<TagComponent>(new List<Entity>());
+
+            CollectionAssert.AreEquivalent(new[] { kept }, results);
+        }
+
+        [Test]
         public void GetEntitiesWith_ReturnsEmpty_WhenNoMatch()
         {
             var context = new Context();
