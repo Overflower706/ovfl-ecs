@@ -40,9 +40,19 @@ namespace OVFL.ECS
             get
             {
                 foreach (var e in _entities)
-                    if (_generations[e.ID] == e.Generation) yield return e;
+                    if (IsListed(e)) yield return e;
             }
         }
+
+        /// <summary>
+        /// <see cref="AllEntities"/>의 맨손 판. 매 프레임 도는 패키지 내부 경로가 쓴다 —
+        /// <c>yield</c> 열거자는 부를 때마다 새로 생겨서, 이벤트를 읽는 시스템 수 × 프레임만큼 쓰레기가 난다.
+        /// 도는 동안 목록을 바꾸지 않는 자리에서만 쓴다.
+        /// </summary>
+        internal List<Entity> Dense => _entities;
+
+        /// <summary><see cref="Dense"/>에 있는 것 중 <see cref="AllEntities"/>에 나오는 것인가.</summary>
+        internal bool IsListed(Entity e) => _generations[e.ID] == e.Generation;
 
         /// <summary>
         /// <see cref="Systems.Tick"/>이 돈 횟수. 첫 Tick 안에서 읽으면 1입니다.

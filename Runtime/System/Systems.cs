@@ -180,7 +180,8 @@ namespace OVFL.ECS
             {
                 foreach (var system in setupSystems)
                 {
-                    Run(() => system.Setup());
+                    try { system.Setup(); }
+                    catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
                     context?.Flush();
                 }
             }
@@ -201,8 +202,10 @@ namespace OVFL.ECS
                     var bucket = tickSystems[p];
                     for (int i = 0; i < bucket.Count; i++)
                     {
-                        var system = bucket[i];
-                        Run(() => system.Tick());
+                        // try를 시스템마다 직접 쓴다. 감싸는 함수에 람다를 넘기면 시스템 수 × 프레임만큼
+                        // 클로저가 새로 생긴다. 재던질 때는 필터가 잡지 않으므로 스택이 원래 자리를 가리킨다.
+                        try { bucket[i].Tick(); }
+                        catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
                     }
                 }
             }
@@ -230,8 +233,8 @@ namespace OVFL.ECS
                     var bucket = fixedTickSystems[p];
                     for (int i = 0; i < bucket.Count; i++)
                     {
-                        var system = bucket[i];
-                        Run(() => system.FixedTick());
+                        try { bucket[i].FixedTick(); }
+                        catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
                     }
                 }
             }
@@ -250,7 +253,10 @@ namespace OVFL.ECS
             try
             {
                 foreach (var system in cleanupSystems)
-                    Run(() => system.Cleanup());
+                {
+                    try { system.Cleanup(); }
+                    catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
+                }
             }
             // 예외를 다시 던지더라도 반영은 한다. 안 그러면 죽은 엔티티가 다음 스텝까지
             // 남아, 원래 예외와 무관한 곳에서 두 번째 사고가 난다.
@@ -264,7 +270,10 @@ namespace OVFL.ECS
             try
             {
                 foreach (var system in fixedCleanupSystems)
-                    Run(() => system.FixedCleanup());
+                {
+                    try { system.FixedCleanup(); }
+                    catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
+                }
             }
             finally { context?.Flush(); }
         }
@@ -277,7 +286,10 @@ namespace OVFL.ECS
             try
             {
                 foreach (var system in teardownSystems)
-                    Run(() => system.Teardown());
+                {
+                    try { system.Teardown(); }
+                    catch (Exception e) when (!RethrowOnSystemException) { UnityEngine.Debug.LogException(e); }
+                }
             }
             // Teardown이 실패해도 시스템 목록은 반드시 비운다. 남겨두면 이미 정리된
             // 리소스를 붙든 시스템이 다음 Setup에서 되살아난다.
@@ -316,12 +328,6 @@ namespace OVFL.ECS
             else context.PublishEvents();
 
             context.Flush();
-        }
-
-        private static void Run(Action body)
-        {
-            try { body(); }
-            catch (Exception e) { if (RethrowOnSystemException) throw; UnityEngine.Debug.LogException(e); }
         }
     }
 }

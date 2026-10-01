@@ -40,9 +40,11 @@ namespace OVFL.ECS
             Entity foundEntity = null;
             int count = 0;
 
-            foreach (var entity in context.AllEntities)
+            var dense = context.Dense;
+            for (int i = 0; i < dense.Count; i++)
             {
-                if (entity.HasComponent<T>())
+                var entity = dense[i];
+                if (context.IsListed(entity) && entity.HasComponent<T>())
                 {
                     if (count == 0)
                         foundEntity = entity;

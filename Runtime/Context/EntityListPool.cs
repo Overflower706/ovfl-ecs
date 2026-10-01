@@ -24,8 +24,9 @@ namespace OVFL.ECS
         {
             var list = Pool.Count > 0 ? Pool.Pop() : new List<Entity>();
             list.Clear();
-            foreach (var entity in context.AllEntities)
-                list.Add(entity);
+            var dense = context.Dense;
+            for (int i = 0; i < dense.Count; i++)
+                if (context.IsListed(dense[i])) list.Add(dense[i]);
             return list;
         }
 

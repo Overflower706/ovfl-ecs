@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.2] - 2026-10-01
+
+### Fixed
+- **매 프레임 경로가 쓰레기를 만들지 않는다.** 시스템이 수십 개인 게임에서 스텝마다 약 10KB가 새고 있었다.
+  - `Systems`가 시스템마다 람다를 감싸 돌리던 것을 시스템마다 `try`를 직접 쓰도록 바꿨다.
+    예외 처리 규칙(`RethrowOnSystemException`)은 그대로다 — 재던질 때는 예외 필터가 잡지 않으므로
+    스택이 원래 자리를 가리킨다.
+  - `ProcessEvents`의 스냅샷과 `TryGetUniqueEntity`가 `yield` 열거자(`AllEntities`) 대신
+    엔티티 목록을 직접 돈다. 공개 `AllEntities`는 그대로다.
+
+  넘기는 델리게이트(`ProcessEvents(OnX)`의 메서드 그룹)는 부르는 쪽 몫이다 — 매번 새로 만들면
+  그만큼은 여전히 쌓인다. 필드에 한 번 만들어 두면 된다.
+
 ## [3.6.1] - 2026-09-02
 
 ### Fixed
